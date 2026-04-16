@@ -13,6 +13,8 @@ import {
   isWithinInterval, parseISO 
 } from 'date-fns';
 
+const APP_VERSION = '2.0.0';
+
 // --- TYPES ---
 declare global {
   interface Window {
@@ -797,7 +799,7 @@ const App: React.FC = () => {
           <div>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Tracker de Horas de Trabajo</h1>
             <p className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', letterSpacing: '2px' }}>
-              LYNX_OS_V2.0
+              LYNX_OS_V{APP_VERSION}
             </p>
           </div>
         </div>
