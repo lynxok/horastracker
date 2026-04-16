@@ -1,0 +1,98 @@
+{
+  "name": "tracker-de-horas",
+  "private": true,
+  "version": "1.0.0",
+  "main": "electron/main.cjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lynxok/horastracker.git"
+  },
+  "scripts": {
+    "dev": "vite",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "build": "tsc -b && vite build",
+    "package": "npm run build && electron-builder",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "afip-ws-node": "^3.2.3",
+    "afip.ts": "^3.2.2",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^1.8.0",
+    "node-afip": "^1.0.4",
+    "node-forge": "^1.4.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "soap": "^1.8.0",
+    "electron-updater": "^6.1.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/node": "^24.12.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.4.0",
+    "png-to-ico": "^3.0.1",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.58.0",
+    "vite": "^8.0.4",
+    "wait-on": "^9.0.5"
+  },
+  "build": {
+    "appId": "com.lynx.tracker-de-horas",
+    "productName": "Tracker de Horas",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "lynxok",
+        "repo": "horastracker"
+      }
+    ],
+    "directories": {
+      "output": "build-output"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "public/icons/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "certs",
+        "to": "certs",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "public/icons/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Tracker de Horas",
+      "artifactName": "Tracker_de_Horas_${version}_Setup.exe",
+      "installerIcon": "public/icons/icon.ico",
+      "uninstallerIcon": "public/icons/icon.ico",
+      "allowElevation": true,
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

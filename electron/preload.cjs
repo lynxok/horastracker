@@ -1,0 +1,28 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  minimize: () => ipcRenderer.send('window-minimize'),
+  maximize: () => ipcRenderer.send('window-maximize'),
+  close: () => ipcRenderer.send('window-close'),
+  saveData: (data) => ipcRenderer.invoke('save-data', data),
+  loadData: () => ipcRenderer.invoke('load-data'),
+  getDataPath: () => ipcRenderer.invoke('get-data-path'),
+  setMinimizeToTray: (val) => ipcRenderer.send('set-minimize-to-tray', val),
+  updateTray: (status) => ipcRenderer.send('update-tray', status),
+  setAutostart: (val) => ipcRenderer.invoke('set-autostart', val),
+  getAutostart: () => ipcRenderer.invoke('get-autostart'),
+  onTrayAction: (callback) => ipcRenderer.on('tray-action', (event, action) => callback(action)),
+  testArcaConnection: (settings) => ipcRenderer.invoke('arca-test-connection', settings),
+  generateArcaCSR: (data) => ipcRenderer.invoke('arca-generate-csr', data),
+  generateArcaInvoice: (data) => ipcRenderer.invoke('arca-generate-invoice', data),
+  generateArcaCreditNote: (data) => ipcRenderer.invoke('arca-generate-credit-note', data),
+  selectFolder: () => ipcRenderer.invoke('select-folder'),
+  selectFile: (filters) => ipcRenderer.invoke('select-file', filters),
+  openFile: (path) => ipcRenderer.invoke('open-file', path),
+  getArcaInvoiceInfo: (data) => ipcRenderer.invoke('get-arca-invoice-info', data),
+  getPublicIp: () => ipcRenderer.invoke('get-public-ip'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  restartApp: () => ipcRenderer.invoke('restart-app'),
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback)
+});
