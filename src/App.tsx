@@ -13,7 +13,7 @@ import {
   isWithinInterval, parseISO 
 } from 'date-fns';
 
-const APP_VERSION = '2.0.1';
+const APP_VERSION = '2.0.3';
 
 // --- TYPES ---
 declare global {
@@ -149,7 +149,7 @@ const App: React.FC = () => {
   const [lastCheckIp, setLastCheckIp] = useState<string>('');
   const [updateStatus, setUpdateStatus] = useState<'available' | 'downloaded' | 'idle'>('idle');
   const [isToastView, setIsToastView] = useState(false);
-  const [toastClient, setToastClient] = useState<Client | null>(null);
+  const [toastData, setToastData] = useState<any>(null);
   const [isInvoicing, setIsInvoicing] = useState(false);
 
   // Modal States
@@ -288,9 +288,10 @@ const App: React.FC = () => {
       const clientData = params.get('client');
       if (clientData) {
         try {
-          setToastClient(JSON.parse(clientData));
+          const parsed = JSON.parse(clientData);
+          setToastData(parsed);
         } catch (e) {
-          console.error('Error parsing toast client data', e);
+          console.error('Error parsing toast data', e);
         }
       }
     }
@@ -755,37 +756,80 @@ const App: React.FC = () => {
 
   if (!isLoaded) return null;
 
-  if (isToastView && toastClient) {
+  if (isToastView && toastData) {
+    const isUpdate = toastData.type === 'update';
+    
     return (
-      <div style={{ width: '400px', height: '160px', overflow: 'hidden', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', border: '2px solid var(--accent-color)', background: 'linear-gradient(135deg, #020617 0%, #0f172a 100%)', boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)', color: 'white' }}>
+      <div className="fade-in" style={{ 
+        width: '400px', 
+        height: '160px', 
+        overflow: 'hidden', 
+        padding: '16px', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: '12px', 
+        border: '1px solid var(--surface-border)', 
+        background: 'rgba(15, 23, 42, 0.6)', 
+        backdropFilter: 'blur(30px)', 
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)', 
+        color: 'white',
+        position: 'relative'
+      }}>
+        {/* Reflection top border */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)' }}></div>
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-color)', boxShadow: '0 0 10px var(--accent-color)' }}></div>
-            <span className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--accent-color)', letterSpacing: '2px' }}>ZONA DETECTADA</span>
+            <div style={{ 
+              width: '8px', 
+              height: '8px', 
+              borderRadius: '50%', 
+              background: isUpdate ? 'var(--success)' : 'var(--accent-color)', 
+              boxShadow: `0 0 10px ${isUpdate ? 'var(--success-glow)' : 'var(--accent-glow)'}` 
+            }}></div>
+            <span className="mono-font" style={{ fontSize: '0.7rem', color: isUpdate ? 'var(--success)' : 'var(--accent-color)', letterSpacing: '2px' }}>
+              {isUpdate ? 'SISTEMA LYNX' : 'ZONA DETECTADA'}
+            </span>
           </div>
           <button onClick={() => window.electronAPI.closeToast()} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={16}/></button>
         </div>
         
         <div style={{ flex: 1 }}>
-          <h2 className="mono-font" style={{ fontSize: '1rem', margin: '0 0 4px 0' }}>{toastClient.name}</h2>
-          <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8' }}>Estás conectado a la red de este cliente. ¿Deseas iniciar el trackeo?</p>
+          <h2 className="mono-font" style={{ fontSize: '1rem', margin: '0 0 4px 0' }}>{toastData.name}</h2>
+          <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8' }}>
+            {isUpdate 
+              ? 'Una nueva versión ha sido preparada e instalada automáticamente. Reinicia para aplicar.' 
+              : 'Estás conectado a la red de este cliente. ¿Deseas iniciar el trackeo?'}
+          </p>
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button 
-            onClick={() => window.electronAPI.toastActionStart(toastClient)} 
-            className="btn-primary" 
-            style={{ flex: 2, justifyContent: 'center', fontSize: '0.8rem', padding: '10px' }}
-          >
-            INICIAR TURNO
-          </button>
-          <button 
-            onClick={() => window.electronAPI.closeToast()} 
-            className="btn-secondary" 
-            style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '10px' }}
-          >
-            IGNORAR
-          </button>
+          {isUpdate ? (
+            <button 
+              onClick={() => window.electronAPI.restartApp()} 
+              className="btn-primary" 
+              style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '10px' }}
+            >
+              REINICIAR AHORA
+            </button>
+          ) : (
+            <>
+              <button 
+                onClick={() => window.electronAPI.toastActionStart(toastData)} 
+                className="btn-primary" 
+                style={{ flex: 2, justifyContent: 'center', fontSize: '0.8rem', padding: '10px' }}
+              >
+                INICIAR TURNO
+              </button>
+              <button 
+                onClick={() => window.electronAPI.closeToast()} 
+                className="btn-secondary" 
+                style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '10px', background: 'rgba(255,255,255,0.05)' }}
+              >
+                IGNORAR
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
@@ -821,11 +865,11 @@ const App: React.FC = () => {
 
   // APP RENDER
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#020617' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'transparent' }}>
       {/* OS DRAG BAR */}
       {window.electronAPI && (
         <div style={{ 
-          height: '40px', background: 'rgba(0,0,0,0.8)', borderBottom: '1px solid var(--surface-border)',
+          height: '40px', background: 'rgba(2, 6, 23, 0.6)', backdropFilter: 'blur(10px)', borderBottom: '1px solid var(--surface-border)',
           display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 10px',
           ...( { WebkitAppRegion: 'drag' } as any )
         }}>
@@ -838,7 +882,7 @@ const App: React.FC = () => {
       )}
 
       {/* HEADER NAV */}
-      <header style={{ padding: '0 40px', height: '100px', display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--surface-border)', background: 'var(--bg-color)' }}>
+      <header style={{ padding: '0 40px', height: '100px', display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--surface-border)', background: 'rgba(15, 23, 42, 0.2)', backdropFilter: 'blur(30px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <img src={lynxIconUrl} alt="LYNX Logo" style={{ width: '48px', height: '48px', objectFit: 'contain', filter: 'drop-shadow(0 0 8px rgba(255,100,0,0.6))' }} />
           <div>

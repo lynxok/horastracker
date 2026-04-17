@@ -85,12 +85,17 @@ function createWindow() {
   });
 
   // Auto-updater events
-  autoUpdater.on('update-available', () => {
+  autoUpdater.on('update-available', (info) => {
     mainWindow.webContents.send('update-available');
+    // Also show toast if window is hidden/minimized
+    if (!mainWindow.isVisible() || mainWindow.isMinimized()) {
+      createToastWindow({ name: 'Nueva Actualización v' + info.version, type: 'update' });
+    }
   });
 
-  autoUpdater.on('update-downloaded', () => {
+  autoUpdater.on('update-downloaded', (info) => {
     mainWindow.webContents.send('update-downloaded');
+    createToastWindow({ name: 'Actualización Lista v' + info.version, type: 'update', downloaded: true });
   });
 
   // Periodic Update Check (Every 2 hours)
