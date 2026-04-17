@@ -135,14 +135,28 @@ function updateTrayMenu(statusText) {
   tray.setContextMenu(contextMenu);
 }
 
-app.whenReady().then(() => {
-  createWindow();
-  createTray();
+const gotTheLock = app.requestSingleInstanceLock();
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
   });
-});
+
+  app.whenReady().then(() => {
+    createWindow();
+    createTray();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
@@ -737,4 +751,99 @@ ipcMain.handle('arca-generate-credit-note', async (event, { settings, invoice, c
   }
 });
 
+// --- BACKGROUND ZONE MONITORING & TOAST NOTIFICATIONS ---
+
+let monitoringClients = [];
+let lastMonitoredIp = null;
+let toastWindow = null;
+
+ipcMain.on('sync-monitoring-data', (event, { clients }) => {
+  monitoringClients = clients || [];
+});
+
+function createToastWindow(client) {
+  if (toastWindow) return; // Only one toast at a time
+
+  const { screen } = require('electron');
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+
+  const toastWidth = 400;
+  const toastHeight = 160;
+  const x = width - toastWidth - 20;
+  const y = height - toastHeight - 20;
+
+  toastWindow = new BrowserWindow({
+    width: toastWidth,
+    height: toastHeight,
+    x, y,
+    frame: false,
+    resizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    backgroundColor: '#020617',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: true
+    },
+  });
+
+  const toastParams = `view=toast&client=${encodeURIComponent(JSON.stringify(client))}`;
+  if (isDev) {
+    toastWindow.loadURL(`http://localhost:5173?${toastParams}`);
+  } else {
+    toastWindow.loadFile(path.join(__dirname, '../dist/index.html'), { query: { view: 'toast', client: JSON.stringify(client) } });
+  }
+
+  toastWindow.on('closed', () => {
+    toastWindow = null;
+  });
+}
+
+ipcMain.on('close-toast', () => {
+  if (toastWindow) toastWindow.close();
+});
+
+ipcMain.on('toast-action-start', (event, client) => {
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.webContents.send('start-session-from-toast', client);
+  }
+  if (toastWindow) toastWindow.close();
+});
+
+setInterval(async () => {
+  if (!monitoringClients.length) return;
+
+  try {
+    const res = await new Promise((resolve) => {
+      https.get('https://api.ipify.org?format=json', (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try { resolve({ success: true, ip: JSON.parse(data).ip }); } catch (e) { resolve({ success: false }); }
+        });
+      }).on('error', () => resolve({ success: false }));
+    });
+
+    if (res.success) {
+      const matchingClient = monitoringClients.find(c => c.workIp === res.ip);
+      
+      // If we found a match and it's a NEW detection (or reset)
+      if (matchingClient && res.ip !== lastMonitoredIp) {
+        lastMonitoredIp = res.ip;
+        // Only show toast if main window is NOT active/focused
+        if (!mainWindow || !mainWindow.isVisible() || mainWindow.isMinimized()) {
+          createToastWindow(matchingClient);
+        }
+      } else if (!matchingClient) {
+        lastMonitoredIp = null; // Reset if we leave the zone
+      }
+    }
+  } catch (e) {
+    console.error('Background monitoring error:', e);
+  }
+}, 60000); // Check every minute
 

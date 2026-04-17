@@ -148,6 +148,8 @@ const App: React.FC = () => {
   const [activeZoneClient, setActiveZoneClient] = useState<Client | null>(null);
   const [lastCheckIp, setLastCheckIp] = useState<string>('');
   const [updateStatus, setUpdateStatus] = useState<'available' | 'downloaded' | 'idle'>('idle');
+  const [isToastView, setIsToastView] = useState(false);
+  const [toastClient, setToastClient] = useState<Client | null>(null);
   const [isInvoicing, setIsInvoicing] = useState(false);
 
   // Modal States
@@ -247,6 +249,12 @@ const App: React.FC = () => {
     init();
   }, []);
 
+  useEffect(() => {
+    if (window.electronAPI) {
+      window.electronAPI.syncMonitoringData({ clients: settings.clients });
+    }
+  }, [settings.clients, isLoaded]);
+
   // Save on change
   useEffect(() => {
     if (!isLoaded) return;
@@ -260,32 +268,33 @@ const App: React.FC = () => {
     }
   }, [sessions, billedMonths, settings, isLoaded]);
 
-  // Zone Detection Logic
   useEffect(() => {
-    if (!isLoaded || activeSessionId || !settings.clients.length) return;
+    // Zone Detection Logic (Local fallback removed, now handled by main.cjs)
+    // We still listen for detections from main
+    if (window.electronAPI) {
+      window.electronAPI.onStartSessionFromToast((client: any) => {
+        // Find the full client object just in case
+        const fullClient = settings.clients.find(c => c.id === client.id) || client;
+        startSession(fullClient);
+      });
+    }
+  }, [settings.clients, isLoaded]);
 
-    const checkZone = async () => {
-      try {
-        const res = await (window as any).electronAPI.getPublicIp();
-        if (res.success && res.ip !== lastCheckIp) {
-          setLastCheckIp(res.ip);
-          const matchingClient = settings.clients.find(c => c.workIp === res.ip);
-          if (matchingClient) {
-            setActiveZoneClient(matchingClient);
-          } else {
-            setActiveZoneClient(null);
-          }
+  // Toast Detection Logic
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('view') === 'toast') {
+      setIsToastView(true);
+      const clientData = params.get('client');
+      if (clientData) {
+        try {
+          setToastClient(JSON.parse(clientData));
+        } catch (e) {
+          console.error('Error parsing toast client data', e);
         }
-      } catch (e) {
-        console.error('Error checking IP zone:', e);
       }
-    };
-
-    const interval = setInterval(checkZone, 120000); 
-    checkZone(); 
-
-    return () => clearInterval(interval);
-  }, [activeSessionId, settings.clients, lastCheckIp, isLoaded]);
+    }
+  }, []);
 
   // Update System Logic
   useEffect(() => {
@@ -745,6 +754,42 @@ const App: React.FC = () => {
   };
 
   if (!isLoaded) return null;
+
+  if (isToastView && toastClient) {
+    return (
+      <div style={{ width: '400px', height: '160px', overflow: 'hidden', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', border: '2px solid var(--accent-color)', background: 'linear-gradient(135deg, #020617 0%, #0f172a 100%)', boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)', color: 'white' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-color)', boxShadow: '0 0 10px var(--accent-color)' }}></div>
+            <span className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--accent-color)', letterSpacing: '2px' }}>ZONA DETECTADA</span>
+          </div>
+          <button onClick={() => window.electronAPI.closeToast()} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={16}/></button>
+        </div>
+        
+        <div style={{ flex: 1 }}>
+          <h2 className="mono-font" style={{ fontSize: '1rem', margin: '0 0 4px 0' }}>{toastClient.name}</h2>
+          <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8' }}>Estás conectado a la red de este cliente. ¿Deseas iniciar el trackeo?</p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            onClick={() => window.electronAPI.toastActionStart(toastClient)} 
+            className="btn-primary" 
+            style={{ flex: 2, justifyContent: 'center', fontSize: '0.8rem', padding: '10px' }}
+          >
+            INICIAR TURNO
+          </button>
+          <button 
+            onClick={() => window.electronAPI.closeToast()} 
+            className="btn-secondary" 
+            style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '10px' }}
+          >
+            IGNORAR
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Render LOCK SCREEN
   if (!isUnlocked) {

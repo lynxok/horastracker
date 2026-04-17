@@ -24,5 +24,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   restartApp: () => ipcRenderer.invoke('restart-app'),
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
-  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback)
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
+  syncMonitoringData: (data) => ipcRenderer.send('sync-monitoring-data', data),
+  closeToast: () => ipcRenderer.send('close-toast'),
+  onStartSessionFromToast: (callback) => ipcRenderer.on('start-session-from-toast', (event, client) => callback(client)),
+  toastActionStart: (client) => ipcRenderer.send('toast-action-start', client)
 });
