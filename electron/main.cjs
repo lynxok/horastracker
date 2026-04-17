@@ -178,6 +178,10 @@ ipcMain.on('window-close', () => {
   (minimizeToTray && win === mainWindow) ? win.hide() : win?.close();
 });
 
+ipcMain.handle('restart-app', () => {
+  autoUpdater.quitAndInstall();
+});
+
 // Settings Handlers
 ipcMain.on('set-minimize-to-tray', (event, value) => { minimizeToTray = value; });
 ipcMain.on('update-tray', (event, statusText) => updateTrayMenu(statusText));
