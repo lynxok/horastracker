@@ -548,10 +548,6 @@ ipcMain.handle('check-for-updates', () => {
   autoUpdater.checkForUpdatesAndNotify();
 });
 
-ipcMain.handle('restart-app', () => {
-  autoUpdater.quitAndInstall();
-});
-
 ipcMain.handle('arca-generate-invoice', async (event, { settings, client, amount, start, end }) => {
   try {
     const afip = getAfipInstance(settings.arcaInfo);
