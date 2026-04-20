@@ -63,7 +63,7 @@ function createWindow() {
     height: 900,
     frame: false,
     backgroundColor: '#020617',
-    icon: path.join(__dirname, '../public/icons/icon.ico'),
+    icon: path.join(__dirname, '../public/Icono mas lindo.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -121,7 +121,7 @@ function createWindow() {
 
 function createTray() {
   try {
-    const iconPath = path.join(__dirname, '../public/icons/icon.ico');
+    const iconPath = path.join(__dirname, '../public/Icono mas lindo.png');
     const icon = nativeImage.createFromPath(iconPath);
     
     tray = new Tray(icon);

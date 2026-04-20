@@ -1,9 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-:root {
+:root[data-theme='cyberpunk'] {
   --bg-color: #020617;
-  --surface-color: rgba(15, 23, 42, 0.4); /* Much more transparent */
-  --surface-border: rgba(255, 255, 255, 0.1); /* Subtle white border for glass */
+  --surface-color: rgba(15, 23, 42, 0.4);
+  --surface-border: rgba(255, 255, 255, 0.1);
   --accent-color: #0ea5e9;
   --accent-glow: rgba(14, 165, 233, 0.3);
   --accent-secondary: #f472b6;
@@ -15,11 +15,65 @@
   --danger-glow: rgba(239, 68, 68, 0.2);
   --transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   --glass-reflection: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
-  
+}
+
+:root[data-theme='matrix'] {
+  --bg-color: #000000;
+  --surface-color: rgba(0, 30, 0, 0.4);
+  --surface-border: rgba(0, 255, 70, 0.2);
+  --accent-color: #00ff41;
+  --accent-glow: rgba(0, 255, 65, 0.3);
+  --accent-secondary: #008f11;
+  --text-primary: #d0ffd0;
+  --text-secondary: #008f11;
+  --success: #00ff41;
+  --success-glow: rgba(0, 255, 65, 0.2);
+  --danger: #ff3131;
+  --danger-glow: rgba(255, 49, 49, 0.2);
+  --transition: all 0.3s ease;
+  --glass-reflection: linear-gradient(135deg, rgba(0, 255, 65, 0.05) 0%, transparent 100%);
+}
+
+:root[data-theme='minimal'] {
+  --bg-color: #f8fafc;
+  --surface-color: rgba(255, 255, 255, 0.8);
+  --surface-border: rgba(0, 0, 0, 0.05);
+  --accent-color: #0f172a;
+  --accent-glow: rgba(15, 23, 42, 0.1);
+  --accent-secondary: #64748b;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --success: #10b981;
+  --success-glow: rgba(16, 185, 129, 0.2);
+  --danger: #f43f5e;
+  --danger-glow: rgba(244, 63, 94, 0.2);
+  --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  --glass-reflection: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, transparent 100%);
+}
+
+:root[data-theme='deep-ocean'] {
+  --bg-color: #0f172a;
+  --surface-color: rgba(30, 41, 59, 0.6);
+  --surface-border: rgba(56, 189, 248, 0.2);
+  --accent-color: #38bdf8;
+  --accent-glow: rgba(56, 189, 248, 0.4);
+  --accent-secondary: #818cf8;
+  --text-primary: #f0f9ff;
+  --text-secondary: #7dd3fc;
+  --success: #4ade80;
+  --success-glow: rgba(74, 222, 128, 0.2);
+  --danger: #fb7185;
+  --danger-glow: rgba(251, 113, 133, 0.2);
+  --transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  --glass-reflection: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
+}
+
+:root {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   color: var(--text-primary);
   background-color: var(--bg-color);
+  transition: background-color 0.5s ease, color 0.5s ease;
 }
 
 * {

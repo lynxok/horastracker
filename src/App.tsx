@@ -13,7 +13,7 @@ import {
   isWithinInterval, parseISO 
 } from 'date-fns';
 
-const APP_VERSION = '2.0.6';
+const APP_VERSION = '2.0.8';
 
 // --- TYPES ---
 declare global {
@@ -39,10 +39,18 @@ declare global {
       openFile: (path: string) => Promise<{ success: boolean; error?: string }>;
       getArcaInvoiceInfo: (data: any) => Promise<{ success: boolean; info?: any; error?: string }>;
       getPublicIp: () => Promise<{ success: boolean; ip?: string; error?: string }>;
+      getVersion: () => Promise<string>;
       checkForUpdates: () => void;
       restartApp: () => void;
       onUpdateAvailable: (callback: () => void) => void;
       onUpdateDownloaded: (callback: () => void) => void;
+      onUpdateNotAvailable: (callback: () => void) => void;
+      onCheckingForUpdate: (callback: () => void) => void;
+      onUpdateError: (callback: (err: string) => void) => void;
+      syncMonitoringData: (data: any) => void;
+      closeToast: () => void;
+      onStartSessionFromToast: (callback: (client: any) => void) => void;
+      toastActionStart: (client: any) => void;
     }
   }
 }
@@ -102,6 +110,7 @@ interface AppSettings {
     productionMode: boolean;
   };
   invoicePath?: string;
+  theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean';
 }
 
 const DEFAULT_CLIENTS: Client[] = [
@@ -123,7 +132,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   appPassword: null,
   monthlyGoal: 500000,
   arcaInfo: { cuit: '20326691314', puntoVenta: '2', certPath: '', keyPath: '', productionMode: true },
-  invoicePath: ''
+  invoicePath: '',
+  theme: 'cyberpunk'
 };
 
 // --- COMPONENT ---
@@ -146,7 +156,6 @@ const App: React.FC = () => {
   const [arcaTesting, setArcaTesting] = useState(false);
   const [arcaStatus, setArcaStatus] = useState<{ msg: string; type: 'success' | 'error' | 'idle' }>({ msg: '', type: 'idle' });
   const [activeZoneClient, setActiveZoneClient] = useState<Client | null>(null);
-  const [lastCheckIp, setLastCheckIp] = useState<string>('');
   const [updateStatus, setUpdateStatus] = useState<'available' | 'downloaded' | 'idle' | 'checking' | 'not-available' | 'error'>('idle');
   const [appVersion, setAppVersion] = useState<string>('...');
   const [isToastView, setIsToastView] = useState(false);
@@ -183,8 +192,8 @@ const App: React.FC = () => {
       let savedSettings = DEFAULT_SETTINGS;
 
       if (window.electronAPI) {
-        const data = await window.electronAPI.loadData();
-        const path = await window.electronAPI.getDataPath();
+        const data = await window.electronAPI?.loadData();
+        const path = await window.electronAPI?.getDataPath();
         setDataPath(path);
         
         if (data) {
@@ -211,7 +220,7 @@ const App: React.FC = () => {
         
         // Sync OS setting with saved intent on load
         if (savedSettings.autoStart) {
-          window.electronAPI.setAutostart(true);
+          window.electronAPI?.setAutostart(true);
         }
         
       } else {
@@ -244,8 +253,8 @@ const App: React.FC = () => {
       setIsLoaded(true);
 
       if (window.electronAPI) {
-        window.electronAPI.setMinimizeToTray(savedSettings.minimizeToTray);
-        const version = await window.electronAPI.getVersion();
+        window.electronAPI?.setMinimizeToTray(savedSettings.minimizeToTray);
+        const version = await window.electronAPI?.getVersion();
         setAppVersion(version);
       }
     };
@@ -254,7 +263,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (window.electronAPI) {
-      window.electronAPI.syncMonitoringData({ clients: settings.clients });
+      window.electronAPI?.syncMonitoringData({ clients: settings.clients });
     }
   }, [settings.clients, isLoaded]);
 
@@ -265,7 +274,7 @@ const App: React.FC = () => {
     const payload = { sessions, billedMonths, settings };
     
     if (window.electronAPI) {
-      window.electronAPI.saveData(payload);
+      window.electronAPI?.saveData(payload);
     } else {
       localStorage.setItem('lynx_v2_data', JSON.stringify(payload));
     }
@@ -275,7 +284,7 @@ const App: React.FC = () => {
     // Zone Detection Logic (Local fallback removed, now handled by main.cjs)
     // We still listen for detections from main
     if (window.electronAPI) {
-      window.electronAPI.onStartSessionFromToast((client: any) => {
+      window.electronAPI?.onStartSessionFromToast((client: any) => {
         // Find the full client object just in case
         const fullClient = settings.clients.find(c => c.id === client.id) || client;
         startSession(fullClient);
@@ -303,20 +312,24 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!window.electronAPI) return;
 
-    window.electronAPI.onCheckingForUpdate(() => setUpdateStatus('checking'));
-    window.electronAPI.onUpdateAvailable(() => setUpdateStatus('available'));
-    window.electronAPI.onUpdateDownloaded(() => setUpdateStatus('downloaded'));
-    window.electronAPI.onUpdateNotAvailable(() => setUpdateStatus('not-available'));
-    window.electronAPI.onUpdateError(() => setUpdateStatus('error'));
+    window.electronAPI?.onCheckingForUpdate(() => setUpdateStatus('checking'));
+    window.electronAPI?.onUpdateAvailable(() => setUpdateStatus('available'));
+    window.electronAPI?.onUpdateDownloaded(() => setUpdateStatus('downloaded'));
+    window.electronAPI?.onUpdateNotAvailable(() => setUpdateStatus('not-available'));
+    window.electronAPI?.onUpdateError(() => setUpdateStatus('error'));
 
     // Check on startup
-    window.electronAPI.checkForUpdates();
+    window.electronAPI?.checkForUpdates();
   }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', settings.theme || 'cyberpunk');
+  }, [settings.theme]);
 
   // IPC Background Tray Actions
   useEffect(() => {
     if (window.electronAPI) {
-      window.electronAPI.onTrayAction((action) => {
+      window.electronAPI?.onTrayAction((action) => {
         if (action === 'stop' && activeSessionId) {
            handlePunchOut();
         }
@@ -336,10 +349,10 @@ const App: React.FC = () => {
             const activeSession = sessions.find(s => s.id === activeSessionId);
             if (activeSession) {
                const secs = differenceInSeconds(currentDate, parseISO(activeSession.startTime));
-               window.electronAPI.updateTray(`Turno Activo: ${formatDuration(secs / 3600)}`);
+               window.electronAPI?.updateTray(`Turno Activo: ${formatDuration(secs / 3600)}`);
             }
          } else {
-            window.electronAPI.updateTray('En Espera');
+            window.electronAPI?.updateTray('En Espera');
          }
       }
     }, 1000);
@@ -406,6 +419,19 @@ const App: React.FC = () => {
   const activeSession = sessions.find(s => s.id === activeSessionId);
 
   // Handlers
+  const startSession = (client: Client) => {
+    if (activeSessionId) return;
+    const newS: WorkSession = {
+      id: crypto.randomUUID(),
+      startTime: new Date().toISOString(),
+      rate: client.hourlyRate,
+      clientId: client.id,
+      clientName: client.name
+    };
+    setSessions([...sessions, newS]);
+    setActiveSessionId(newS.id);
+  };
+
   const handlePunchIn = () => {
     const activeClient = settings.clients.find(c => c.id === settings.selectedClientId) || settings.clients[0];
     const newS: WorkSession = {
@@ -571,8 +597,8 @@ const App: React.FC = () => {
 
   const updateSetting = (key: keyof AppSettings, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
-    if (key === 'minimizeToTray' && window.electronAPI) window.electronAPI.setMinimizeToTray(value);
-    if (key === 'autoStart' && window.electronAPI) window.electronAPI.setAutostart(value);
+    if (key === 'minimizeToTray' && window.electronAPI) window.electronAPI?.setMinimizeToTray(value);
+    if (key === 'autoStart' && window.electronAPI) window.electronAPI?.setAutostart(value);
   };
 
   const updateArcaSetting = (key: keyof AppSettings['arcaInfo'], value: any) => {
@@ -584,7 +610,7 @@ const App: React.FC = () => {
     setArcaTesting(true);
     setArcaStatus({ msg: 'Conectando con servidores de AFIP...', type: 'idle' });
     
-    const res = await window.electronAPI.testArcaConnection(settings);
+    const res = await window.electronAPI?.testArcaConnection(settings);
     if (res.success) {
       setArcaStatus({ msg: `CONEXIÓN EXITOSA. Servidor App: ${res.status.AppServer}, DB: ${res.status.DbServer}`, type: 'success' });
       setArcaDetailedError('');
@@ -618,7 +644,7 @@ const App: React.FC = () => {
     if (!confirm(`¿Emitir factura oficial para ${client.name} por $${Math.floor(totalAmount).toLocaleString()}?`)) return;
 
     setIsInvoicing(true);
-    const res = await window.electronAPI.generateArcaInvoice({
+    const res = await window.electronAPI?.generateArcaInvoice({
       settings, 
       client: {
         razonSocial: client.name,
@@ -657,7 +683,7 @@ const App: React.FC = () => {
       setShowInvoicingModal(false);
       
       if (confirm("FACTURA GENERADA CON ÉXITO. ¿Desea abrir el archivo PDF?")) {
-        window.electronAPI.openFile(res.filePath!);
+        window.electronAPI?.openFile(res.filePath!);
       }
     } else {
       alert(`ERROR AFIP: ${res.error}`);
@@ -672,7 +698,7 @@ const App: React.FC = () => {
     setIsInvoicing(true);
     const client = settings.clients.find(c => c.id === invoice.clientId) || settings.clients[0];
     
-    const res = await window.electronAPI.generateArcaCreditNote({
+    const res = await window.electronAPI?.generateArcaCreditNote({
       settings, 
       invoice, 
       client: {
@@ -689,7 +715,7 @@ const App: React.FC = () => {
       setSessions(sessions.map(s => s.invoiceId === invoice.id ? { ...s, invoiced: false, invoiceId: undefined } : s));
       
       if (confirm(`ANULACIÓN COMPLETADA (N. Crédito: ${res.numero}). ¿Desea abrir el archivo comprobante?`)) {
-        window.electronAPI.openFile(res.filePath!);
+        window.electronAPI?.openFile(res.filePath!);
       }
     } else {
       alert(`ERROR AFIP: ${res.error}`);
@@ -796,7 +822,7 @@ const App: React.FC = () => {
               {isUpdate ? 'SISTEMA LYNX' : 'ZONA DETECTADA'}
             </span>
           </div>
-          <button onClick={() => window.electronAPI.closeToast()} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={16}/></button>
+          <button onClick={() => window.electronAPI?.closeToast()} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={16}/></button>
         </div>
         
         <div style={{ flex: 1 }}>
@@ -811,7 +837,7 @@ const App: React.FC = () => {
         <div style={{ display: 'flex', gap: '8px' }}>
           {isUpdate ? (
             <button 
-              onClick={() => window.electronAPI.restartApp()} 
+              onClick={() => window.electronAPI?.restartApp()} 
               className="btn-primary" 
               style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '10px' }}
             >
@@ -820,14 +846,14 @@ const App: React.FC = () => {
           ) : (
             <>
               <button 
-                onClick={() => window.electronAPI.toastActionStart(toastData)} 
+                onClick={() => window.electronAPI?.toastActionStart(toastData)} 
                 className="btn-primary" 
                 style={{ flex: 2, justifyContent: 'center', fontSize: '0.8rem', padding: '10px' }}
               >
                 INICIAR TURNO
               </button>
               <button 
-                onClick={() => window.electronAPI.closeToast()} 
+                onClick={() => window.electronAPI?.closeToast()} 
                 className="btn-secondary" 
                 style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '10px', background: 'rgba(255,255,255,0.05)' }}
               >
@@ -1205,6 +1231,35 @@ const App: React.FC = () => {
             <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
               <SettingsIcon size={24} /> PANEL DE CONTROL MAESTRO
             </h2>
+
+            {/* SECCION 0 - TEMAS */}
+            <div className="premium-card" style={{ borderLeft: '4px solid var(--accent-color)' }}>
+              <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.9rem', marginBottom: '24px' }}>0. NÚCLEO ESTÉTICO (TEMAS)</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+                {[
+                  { id: 'cyberpunk', name: 'CYBERPUNK', color: '#0ea5e9', desc: 'Futurista Neón' },
+                  { id: 'matrix', name: 'MATRIX', color: '#00ff41', desc: 'Digital Rain' },
+                  { id: 'minimal', name: 'MINIMAL', color: '#0f172a', desc: 'Limpio y Claro' },
+                  { id: 'deep-ocean', name: 'DEEP OCEAN', color: '#38bdf8', desc: 'Abismo Profundo' }
+                ].map(t => (
+                  <div 
+                    key={t.id}
+                    onClick={() => updateSetting('theme', t.id)}
+                    style={{ 
+                      padding: '16px', 
+                      background: settings.theme === t.id ? 'rgba(255,255,255,0.05)' : 'transparent',
+                      border: `1px solid ${settings.theme === t.id ? 'var(--accent-color)' : 'var(--surface-border)'}`,
+                      cursor: 'pointer',
+                      transition: 'all 0.3s',
+                      textAlign: 'center'
+                    }}>
+                    <div style={{ width: '24px', height: '24px', background: t.color, margin: '0 auto 12px', borderRadius: '4px', boxShadow: `0 0 10px ${t.color}` }}></div>
+                    <div className="mono-font" style={{ fontSize: '0.7rem', fontWeight: 800, color: settings.theme === t.id ? 'var(--accent-color)' : 'white' }}>{t.name}</div>
+                    <div className="mono-font" style={{ fontSize: '0.5rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{t.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
 
 

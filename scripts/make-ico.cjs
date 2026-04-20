@@ -2,7 +2,7 @@ const { imagesToIco } = require('png-to-ico');
 const fs = require('fs');
 const path = require('path');
 
-const input = path.join(__dirname, '../public/lynx_icon.png');
+const input = path.join(__dirname, '../public/Icono mas lindo.png');
 const output = path.join(__dirname, '../public/icons/icon.ico');
 
 imagesToIco([input])
