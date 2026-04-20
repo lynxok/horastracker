@@ -13,7 +13,7 @@ import {
   isWithinInterval, parseISO 
 } from 'date-fns';
 
-const APP_VERSION = '2.2.1';
+const APP_VERSION = '2.2.2';
 
 // --- TYPES ---
 declare global {
@@ -1097,21 +1097,33 @@ const App: React.FC = () => {
           <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '40px' }}>
             <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px' }}><Activity size={24} /> ANALÍTICA FINANCIERA</h2>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px' }}>
               <div className="premium-card">
-                 <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', marginBottom: '16px' }}>HOY / DIARIO</div>
-                 <div style={{ fontSize: '2rem', fontWeight: 800 }} className="mono-font">{dailyStats.hours.toFixed(1)} <span style={{fontSize: '1rem'}}>HS</span></div>
-                 <div style={{ fontSize: '1rem', color: 'var(--success)' }} className="mono-font">${Math.floor(dailyStats.earnings).toLocaleString()}</div>
+                 <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>HOY / DIARIO</div>
+                 <div style={{ fontSize: '1.5rem', fontWeight: 800 }} className="mono-font">{dailyStats.hours.toFixed(1)} <span style={{fontSize: '0.8rem'}}>HS</span></div>
+                 <div style={{ fontSize: '0.8rem', color: 'var(--success)' }} className="mono-font">${Math.floor(dailyStats.earnings).toLocaleString()}</div>
               </div>
               <div className="premium-card">
-                 <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', marginBottom: '16px' }}>ESTA SEMANA</div>
-                 <div style={{ fontSize: '2rem', fontWeight: 800 }} className="mono-font">{weeklyStats.hours.toFixed(1)} <span style={{fontSize: '1rem'}}>HS</span></div>
-                 <div style={{ fontSize: '1rem', color: 'var(--success)' }} className="mono-font">${Math.floor(weeklyStats.earnings).toLocaleString()}</div>
+                 <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>ESTA SEMANA</div>
+                 <div style={{ fontSize: '1.5rem', fontWeight: 800 }} className="mono-font">{weeklyStats.hours.toFixed(1)} <span style={{fontSize: '0.8rem'}}>HS</span></div>
+                 <div style={{ fontSize: '0.8rem', color: 'var(--success)' }} className="mono-font">${Math.floor(weeklyStats.earnings).toLocaleString()}</div>
               </div>
               <div className="premium-card">
-                 <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', marginBottom: '16px' }}>ESTE MES</div>
-                 <div style={{ fontSize: '2rem', fontWeight: 800 }} className="mono-font">{monthlyStats.hours.toFixed(1)} <span style={{fontSize: '1rem'}}>HS</span></div>
-                 <div style={{ fontSize: '1rem', color: 'var(--success)' }} className="mono-font">${Math.floor(monthlyStats.earnings).toLocaleString()}</div>
+                 <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>ESTE MES</div>
+                 <div style={{ fontSize: '1.5rem', fontWeight: 800 }} className="mono-font">{monthlyStats.hours.toFixed(1)} <span style={{fontSize: '0.8rem'}}>HS</span></div>
+                 <div style={{ fontSize: '0.8rem', color: 'var(--success)' }} className="mono-font">${Math.floor(monthlyStats.earnings).toLocaleString()}</div>
+              </div>
+              <div className="premium-card" style={{ borderLeft: '3px solid var(--accent-secondary)' }}>
+                 <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>PROYECCIÓN CIERRE</div>
+                 <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-secondary)' }} className="mono-font">
+                   ${Math.floor((monthlyStats.earnings / (new Date().getDate())) * (endOfMonth(new Date()).getDate())).toLocaleString()}
+                 </div>
+              </div>
+              <div className="premium-card" style={{ borderLeft: '3px solid var(--success)' }}>
+                 <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>TOTAL COBRADO</div>
+                 <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--success)' }} className="mono-font">
+                   ${Math.floor(allTimeBilled).toLocaleString()}
+                 </div>
               </div>
             </div>
 
@@ -1137,23 +1149,6 @@ const App: React.FC = () => {
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>OBJETIVO: </span>
                   <span style={{ fontWeight: 800 }}>${settings.monthlyGoal.toLocaleString()}</span>
                 </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-              <div className="premium-card" style={{ borderLeft: '4px solid var(--success)' }}>
-                <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', marginBottom: '16px' }}>ACUMULADO HISTÓRICO LIQUIDADO (TOTAL)</div>
-                <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--success)' }} className="mono-font">
-                  ${Math.floor(allTimeBilled).toLocaleString()}
-                </div>
-              </div>
-
-              <div className="premium-card" style={{ borderLeft: '4px solid var(--accent-secondary)' }}>
-                <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', marginBottom: '16px' }}>PROYECCIÓN CIERRE DE MES</div>
-                <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--accent-secondary)' }} className="mono-font">
-                  ${Math.floor((monthlyStats.earnings / (new Date().getDate())) * (endOfMonth(new Date()).getDate())).toLocaleString()}
-                </div>
-                <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginTop: '8px' }}>BASADO EN EL RITMO ACTUAL</div>
               </div>
             </div>
 
