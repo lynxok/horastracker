@@ -13,7 +13,7 @@ import {
   isWithinInterval, parseISO 
 } from 'date-fns';
 
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.2.1';
 
 // --- TYPES ---
 declare global {
@@ -29,7 +29,8 @@ declare global {
       updateTray: (status: string) => void;
       setAutostart: (val: boolean) => Promise<boolean>;
       getAutostart: () => Promise<boolean>;
-      onTrayAction: (callback: (action: string) => void) => void;
+      onTrayAction: (callback: (action: string, data?: any) => void) => void;
+      syncTrayData: (data: { clients: any[]; activeSession: any | null }) => void;
       generateArcaCSR: (data: any) => Promise<{ success: boolean; folder?: string; keyPath?: string; csrPath?: string; msg?: string; error?: string }>;
       testArcaConnection: (settings: any) => Promise<{ success: boolean; status?: any; error?: string; detailed?: string }>;
       generateArcaInvoice: (data: any) => Promise<{ success: boolean; cae?: string; numero?: number; filePath?: string; error?: string }>;
@@ -325,17 +326,30 @@ const App: React.FC = () => {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', settings.theme || 'cyberpunk');
   }, [settings.theme]);
-
   // IPC Background Tray Actions
   useEffect(() => {
     if (window.electronAPI) {
-      window.electronAPI?.onTrayAction((action) => {
-        if (action === 'stop' && activeSessionId) {
-           handlePunchOut();
+      window.electronAPI?.onTrayAction((action, data) => {
+        if (action === 'restore') {
+          // Window show/hide is handled by main.cjs now via context menu
+        } else if (action === 'stop-session') {
+          handlePunchOut();
+        } else if (action === 'start-session') {
+          startSession(data);
         }
       });
     }
-  }, [activeSessionId]);
+  }, [sessions, activeSessionId, settings.clients]);
+
+  useEffect(() => {
+    if (window.electronAPI) {
+      window.electronAPI?.syncTrayData({
+        clients: settings.clients,
+        activeSession: activeSessionId ? sessions.find(s => s.id === activeSessionId) : null
+      });
+    }
+  }, [settings.clients, activeSessionId, sessions]);
+
 
   // Tick & Tray Sync
   useEffect(() => {
@@ -1126,10 +1140,63 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="premium-card" style={{ borderLeft: '4px solid var(--success)' }}>
-              <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', marginBottom: '16px' }}>ACUMULADO HISTÓRICO LIQUIDADO (ANUAL/TOTAL)</div>
-              <div style={{ fontSize: '3.5rem', fontWeight: 800, color: 'var(--success)' }} className="mono-font">
-                ${Math.floor(allTimeBilled).toLocaleString()} ARS
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+              <div className="premium-card" style={{ borderLeft: '4px solid var(--success)' }}>
+                <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', marginBottom: '16px' }}>ACUMULADO HISTÓRICO LIQUIDADO (TOTAL)</div>
+                <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--success)' }} className="mono-font">
+                  ${Math.floor(allTimeBilled).toLocaleString()}
+                </div>
+              </div>
+
+              <div className="premium-card" style={{ borderLeft: '4px solid var(--accent-secondary)' }}>
+                <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', marginBottom: '16px' }}>PROYECCIÓN CIERRE DE MES</div>
+                <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--accent-secondary)' }} className="mono-font">
+                  ${Math.floor((monthlyStats.earnings / (new Date().getDate())) * (endOfMonth(new Date()).getDate())).toLocaleString()}
+                </div>
+                <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginTop: '8px' }}>BASADO EN EL RITMO ACTUAL</div>
+              </div>
+            </div>
+
+            <div className="premium-card">
+              <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.8rem', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Lock size={14} /> HISTORIAL DE COMPROBANTES EMITIDOS
+              </h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {billedMonths.length === 0 ? (
+                  <div className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>SIN COMPROBANTES REGISTRADOS</div>
+                ) : (
+                  billedMonths.sort((a, b) => b.date.localeCompare(a.date)).map(bm => (
+                    <div key={bm.id} className="premium-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+                        <div style={{ background: 'var(--success)', padding: '8px', borderRadius: '4px' }}>
+                           <Activity size={18} color="black" />
+                        </div>
+                        <div>
+                          <div className="mono-font" style={{ fontSize: '0.8rem', fontWeight: 800 }}>{bm.clientName || 'Cliente General'}</div>
+                          <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>
+                            {format(parseISO(bm.date), "MMMM yyyy").toUpperCase()} • COMPROBANTE: {bm.invoiceNumber || 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div className="mono-font" style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--success)' }}>${bm.totalAmount.toLocaleString()}</div>
+                          <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>{bm.totalHours.toFixed(1)} HS</div>
+                        </div>
+                        {bm.filePath && (
+                          <button 
+                            onClick={() => window.electronAPI?.openFile(bm.filePath!)}
+                            className="btn-secondary" 
+                            style={{ fontSize: '0.6rem', padding: '8px 12px' }}
+                          >
+                            VER PDF
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 

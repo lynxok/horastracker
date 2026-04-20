@@ -125,32 +125,71 @@ function createTray() {
     const icon = nativeImage.createFromPath(iconPath);
     
     tray = new Tray(icon);
-    tray.setToolTip('Tracker de Horas');
+    tray.setToolTip('Tracker de Horas - LYNX');
+    
+    // Initial simple menu
+    updateTrayMenu([]);
+
     tray.on('click', () => {
       if (mainWindow) {
-        mainWindow.show();
-        mainWindow.focus();
+        if (mainWindow.isVisible()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
       }
     });
-
-    updateTrayMenu('Sistema Iniciado');
-  } catch (e) {
-    console.error("Error creating tray", e);
+  } catch (err) {
+    console.error('Tray error:', err);
   }
 }
 
-function updateTrayMenu(statusText) {
+function updateTrayMenu(clients = [], activeSession = null) {
   if (!tray) return;
-  const contextMenu = Menu.buildFromTemplate([
-    { label: statusText, enabled: false },
+
+  const menuTemplate = [
+    { label: 'LYNX Tracker de Horas', enabled: false },
     { type: 'separator' },
-    { label: 'Detener Turno Activo', click: () => { if (mainWindow) mainWindow.webContents.send('tray-action', 'stop'); } },
-    { type: 'separator' },
-    { label: 'Mostrar Consola', click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
-    { label: 'Salir Definitivamente', click: () => { app.isQuitting = true; app.quit(); } }
-  ]);
+    { 
+      label: mainWindow && mainWindow.isVisible() ? 'Ocultar Ventana' : 'Mostrar Ventana', 
+      click: () => {
+        if (mainWindow.isVisible()) mainWindow.hide();
+        else { mainWindow.show(); mainWindow.focus(); }
+      } 
+    },
+    { type: 'separator' }
+  ];
+
+  if (activeSession) {
+    menuTemplate.push({
+      label: `🔴 DETENER TURNO (${activeSession.clientName})`,
+      click: () => {
+        mainWindow.webContents.send('tray-action', 'stop-session');
+      }
+    });
+  } else {
+    if (clients.length > 0) {
+      const clientSubmenu = clients.map(c => ({
+        label: `Iniciar en: ${c.name}`,
+        click: () => {
+          mainWindow.webContents.send('tray-action', 'start-session', c);
+        }
+      }));
+      menuTemplate.push({ label: '🚀 INICIAR TURNO RÁPIDO', submenu: clientSubmenu });
+    }
+  }
+
+  menuTemplate.push({ type: 'separator' });
+  menuTemplate.push({ label: 'Salir', click: () => { app.isQuitting = true; app.quit(); } });
+
+  const contextMenu = Menu.buildFromTemplate(menuTemplate);
   tray.setContextMenu(contextMenu);
 }
+
+ipcMain.on('sync-tray-data', (event, { clients, activeSession }) => {
+  updateTrayMenu(clients, activeSession);
+});
 
 const gotTheLock = app.requestSingleInstanceLock();
 
