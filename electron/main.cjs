@@ -148,45 +148,58 @@ function createTray() {
 function updateTrayMenu(clients = [], activeSession = null) {
   if (!tray) return;
 
-  const safeClients = Array.isArray(clients) ? clients : [];
-  const menuTemplate = [
-    { label: 'LYNX Tracker de Horas', enabled: false },
-    { type: 'separator' },
-    { 
-      label: mainWindow && mainWindow.isVisible() ? 'Ocultar Ventana' : 'Mostrar Ventana', 
-      click: () => {
-        if (mainWindow.isVisible()) mainWindow.hide();
-        else { mainWindow.show(); mainWindow.focus(); }
-      } 
-    },
-    { type: 'separator' }
-  ];
-
-  if (activeSession) {
-    menuTemplate.push({
-      label: `🔴 DETENER TURNO (${activeSession.clientName})`,
-      click: () => {
-        mainWindow.webContents.send('tray-action', 'stop-session');
-      }
-    });
-  } else {
-    if (safeClients.length > 0) {
-      const clientSubmenu = safeClients.map(c => ({
-        label: `Iniciar en: ${c.name}`,
+  try {
+    const safeClients = Array.isArray(clients) ? clients : [];
+    const menuTemplate = [
+      { label: 'LYNX Tracker de Horas', enabled: false },
+      { type: 'separator' },
+      { 
+        label: mainWindow && mainWindow.isVisible() ? 'Ocultar Ventana' : 'Mostrar Ventana', 
         click: () => {
-          mainWindow.webContents.send('tray-action', 'start-session', c);
+          if (mainWindow.isVisible()) mainWindow.hide();
+          else { mainWindow.show(); mainWindow.focus(); }
+        } 
+      },
+      { type: 'separator' }
+    ];
+
+    if (activeSession) {
+      menuTemplate.push({
+        label: `🔴 DETENER TURNO (${activeSession.clientName})`,
+        click: () => {
+          mainWindow.webContents.send('tray-action', 'stop-session');
         }
-      }));
-      menuTemplate.push({ label: '🚀 INICIAR TURNO RÁPIDO', submenu: clientSubmenu });
+      });
+    } else {
+      if (safeClients.length > 0) {
+        const clientSubmenu = safeClients.map(c => ({
+          label: `Iniciar en: ${c.name}`,
+          click: () => {
+            mainWindow.webContents.send('tray-action', 'start-session', c);
+          }
+        }));
+        menuTemplate.push({ label: '🚀 INICIAR TURNO RÁPIDO', submenu: clientSubmenu });
+      }
     }
+
+    menuTemplate.push({ type: 'separator' });
+    menuTemplate.push({ label: 'Salir', click: () => { app.isQuitting = true; app.quit(); } });
+
+    const contextMenu = Menu.buildFromTemplate(menuTemplate);
+    tray.setContextMenu(contextMenu);
+  } catch (err) {
+    console.error('Error updating tray menu:', err);
+    // Fallback to basic menu
+    const fallbackMenu = Menu.buildFromTemplate([
+      { label: 'LYNX Tracker', enabled: false },
+      { label: 'Mostrar Ventana', click: () => mainWindow.show() },
+      { label: 'Salir', click: () => app.quit() }
+    ]);
+    tray.setContextMenu(fallbackMenu);
   }
-
-  menuTemplate.push({ type: 'separator' });
-  menuTemplate.push({ label: 'Salir', click: () => { app.isQuitting = true; app.quit(); } });
-
-  const contextMenu = Menu.buildFromTemplate(menuTemplate);
-  tray.setContextMenu(contextMenu);
 }
+
+
 
 ipcMain.on('sync-tray-data', (event, { clients, activeSession }) => {
   updateTrayMenu(clients, activeSession);

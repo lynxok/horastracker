@@ -13,7 +13,7 @@ import {
   isWithinInterval, parseISO 
 } from 'date-fns';
 
-const APP_VERSION = '2.2.3';
+const APP_VERSION = '2.2.4';
 
 // --- TYPES ---
 declare global {
