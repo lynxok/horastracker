@@ -148,6 +148,7 @@ function createTray() {
 function updateTrayMenu(clients = [], activeSession = null) {
   if (!tray) return;
 
+  const safeClients = Array.isArray(clients) ? clients : [];
   const menuTemplate = [
     { label: 'LYNX Tracker de Horas', enabled: false },
     { type: 'separator' },
@@ -169,8 +170,8 @@ function updateTrayMenu(clients = [], activeSession = null) {
       }
     });
   } else {
-    if (clients.length > 0) {
-      const clientSubmenu = clients.map(c => ({
+    if (safeClients.length > 0) {
+      const clientSubmenu = safeClients.map(c => ({
         label: `Iniciar en: ${c.name}`,
         click: () => {
           mainWindow.webContents.send('tray-action', 'start-session', c);
