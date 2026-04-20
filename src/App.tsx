@@ -147,7 +147,8 @@ const App: React.FC = () => {
   const [arcaStatus, setArcaStatus] = useState<{ msg: string; type: 'success' | 'error' | 'idle' }>({ msg: '', type: 'idle' });
   const [activeZoneClient, setActiveZoneClient] = useState<Client | null>(null);
   const [lastCheckIp, setLastCheckIp] = useState<string>('');
-  const [updateStatus, setUpdateStatus] = useState<'available' | 'downloaded' | 'idle'>('idle');
+  const [updateStatus, setUpdateStatus] = useState<'available' | 'downloaded' | 'idle' | 'checking' | 'not-available' | 'error'>('idle');
+  const [appVersion, setAppVersion] = useState<string>('...');
   const [isToastView, setIsToastView] = useState(false);
   const [toastData, setToastData] = useState<any>(null);
   const [isInvoicing, setIsInvoicing] = useState(false);
@@ -244,6 +245,8 @@ const App: React.FC = () => {
 
       if (window.electronAPI) {
         window.electronAPI.setMinimizeToTray(savedSettings.minimizeToTray);
+        const version = await window.electronAPI.getVersion();
+        setAppVersion(version);
       }
     };
     init();
@@ -297,12 +300,14 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Update System Logic
   useEffect(() => {
     if (!window.electronAPI) return;
 
+    window.electronAPI.onCheckingForUpdate(() => setUpdateStatus('checking'));
     window.electronAPI.onUpdateAvailable(() => setUpdateStatus('available'));
     window.electronAPI.onUpdateDownloaded(() => setUpdateStatus('downloaded'));
+    window.electronAPI.onUpdateNotAvailable(() => setUpdateStatus('not-available'));
+    window.electronAPI.onUpdateError(() => setUpdateStatus('error'));
 
     // Check on startup
     window.electronAPI.checkForUpdates();
@@ -1376,6 +1381,53 @@ const App: React.FC = () => {
               </div>
             </div>
 
+            {/* SECCION 6 - SISTEMA */}
+            <div className="premium-card">
+              <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.9rem', marginBottom: '24px' }}>6. NÚCLEO DEL SISTEMA Y ACTUALIZACIONES</h3>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--surface-border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  <div style={{ 
+                    width: '50px', height: '50px', borderRadius: '50%', background: 'var(--surface-border)', 
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--accent-color)'
+                  }}>
+                    <Shield size={24} color="var(--accent-color)" />
+                  </div>
+                  <div>
+                    <div className="mono-font" style={{ fontSize: '0.9rem', fontWeight: 800 }}>CHRONOS LABOR OS</div>
+                    <div className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>VERSIÓN ACTUAL: {appVersion}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                   <button 
+                    onClick={() => window.electronAPI?.checkForUpdates()} 
+                    disabled={updateStatus === 'checking'}
+                    className="btn-secondary" 
+                    style={{ padding: '8px 24px', fontSize: '0.7rem' }}>
+                    {updateStatus === 'checking' ? 'BUSCANDO...' : 'BUSCAR ACTUALIZACIÓN'}
+                   </button>
+                   
+                   <div className="mono-font" style={{ fontSize: '0.6rem' }}>
+                    {updateStatus === 'idle' && <span style={{color: 'var(--text-secondary)'}}>SISTEMA SINCRONIZADO</span>}
+                    {updateStatus === 'checking' && <span style={{color: 'var(--accent-color)'}}>CONECTANDO CON SERVIDOR LYNX...</span>}
+                    {updateStatus === 'available' && <span style={{color: 'var(--warning)'}}>NUEVA VERSIÓN DETECTADA - DESCARGANDO...</span>}
+                    {updateStatus === 'downloaded' && <span style={{color: 'var(--success)'}}>¡ACTUALIZACIÓN LISTA PARA INSTALAR!</span>}
+                    {updateStatus === 'not-available' && <span style={{color: 'var(--success)'}}>EL SOFTWARE ESTÁ ACTUALIZADO</span>}
+                    {updateStatus === 'error' && <span style={{color: 'var(--danger)'}}>ERROR EN LA CONEXIÓN DE ACTUALIZACIÓN</span>}
+                   </div>
+                </div>
+              </div>
+              
+              {updateStatus === 'downloaded' && (
+                <button 
+                  onClick={() => window.electronAPI?.restartApp()} 
+                  className="btn-primary" 
+                  style={{ width: '100%', marginTop: '16px', padding: '16px', fontWeight: 800 }}>
+                  REINICIAR E INSTALAR AHORA
+                </button>
+              )}
+            </div>
           </div>
         )}
 

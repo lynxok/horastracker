@@ -98,6 +98,18 @@ function createWindow() {
     createToastWindow({ name: 'Actualización Lista v' + info.version, type: 'update', downloaded: true });
   });
 
+  autoUpdater.on('checking-for-update', () => {
+    mainWindow.webContents.send('checking-for-update');
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    mainWindow.webContents.send('update-not-available');
+  });
+
+  autoUpdater.on('error', (err) => {
+    mainWindow.webContents.send('update-error', err.message);
+  });
+
   // Periodic Update Check (Every 2 hours)
   setInterval(() => {
     autoUpdater.checkForUpdatesAndNotify();
@@ -542,6 +554,8 @@ ipcMain.handle('get-arca-invoice-info', async (event, { settings, number, pv, ty
     return { success: false, error: error.message };
   }
 });
+
+ipcMain.handle('get-app-version', () => app.getVersion());
 
 // Auto-updater handlers
 ipcMain.handle('check-for-updates', () => {
