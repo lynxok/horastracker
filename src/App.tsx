@@ -77,6 +77,7 @@ interface WorkSession {
   clientName: string;
   invoiced?: boolean;
   invoiceId?: string;
+  note?: string;
 }
 
 interface BilledMonth {
@@ -113,7 +114,7 @@ interface AppSettings {
     productionMode: boolean;
   };
   invoicePath?: string;
-  theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean';
+  theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean' | 'harry-potter' | 'marvel' | 'loki';
 }
 
 const DEFAULT_CLIENTS: Client[] = [
@@ -163,6 +164,8 @@ const App: React.FC = () => {
   const [appVersion, setAppVersion] = useState<string>('...');
   const [isToastView, setIsToastView] = useState(false);
   const [isWidgetView, setIsWidgetView] = useState(false);
+  const [currentNote, setCurrentNote] = useState('');
+  const [manualNote, setManualNote] = useState('');
   const [toastData, setToastData] = useState<any>(null);
   const [isInvoicing, setIsInvoicing] = useState(false);
 
@@ -315,6 +318,51 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const playThematicSound = (action: 'start' | 'stop') => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      const theme = settings.theme || 'cyberpunk';
+      
+      if (theme === 'harry-potter') {
+        // Magical "chime"
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(action === 'start' ? 880 : 440, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(action === 'start' ? 1760 : 220, audioCtx.currentTime + 0.5);
+      } else if (theme === 'marvel') {
+        // Power-up tech sound
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(action === 'start' ? 100 : 800, audioCtx.currentTime);
+        oscillator.frequency.linearRampToValueAtTime(action === 'start' ? 1000 : 100, audioCtx.currentTime + 0.3);
+      } else if (theme === 'loki') {
+        // Retro "ding"
+        oscillator.type = 'triangle';
+        oscillator.frequency.setValueAtTime(660, audioCtx.currentTime);
+      } else if (theme === 'matrix') {
+        // Digital blip
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(action === 'start' ? 150 : 100, audioCtx.currentTime);
+      } else {
+        // Cyberpunk neon pulse
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(action === 'start' ? 440 : 220, audioCtx.currentTime);
+      }
+
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.5);
+    } catch (e) {
+      console.error('Audio not supported', e);
+    }
+  };
+
   useEffect(() => {
     if (!window.electronAPI) return;
 
@@ -445,10 +493,12 @@ const App: React.FC = () => {
       startTime: new Date().toISOString(),
       rate: client.hourlyRate,
       clientId: client.id,
-      clientName: client.name
+      clientName: client.name,
+      note: currentNote
     };
     setSessions([...sessions, newS]);
     setActiveSessionId(newS.id);
+    playThematicSound('start');
   };
 
   const handlePunchIn = () => {
@@ -458,18 +508,22 @@ const App: React.FC = () => {
       startTime: new Date().toISOString(),
       rate: activeClient.hourlyRate,
       clientId: activeClient.id,
-      clientName: activeClient.name
+      clientName: activeClient.name,
+      note: currentNote
     };
     setSessions([...sessions, newS]);
     setActiveSessionId(newS.id);
+    playThematicSound('start');
   };
 
   const handlePunchOut = () => {
     if (!activeSessionId) return;
     setSessions(sessions.map(s => 
-      s.id === activeSessionId ? { ...s, endTime: new Date().toISOString() } : s
+      s.id === activeSessionId ? { ...s, endTime: new Date().toISOString(), note: currentNote } : s
     ));
     setActiveSessionId(null);
+    setCurrentNote(''); // Clear note after session ends
+    playThematicSound('stop');
   };
 
   const handleManualEntry = (e: React.FormEvent) => {
@@ -488,7 +542,8 @@ const App: React.FC = () => {
             endTime: parseISO(manualEnd).toISOString(), 
             rate: manualRate,
             clientId: targetClient.id,
-            clientName: targetClient.name
+            clientName: targetClient.name,
+            note: manualNote
           };
         }
         return s;
@@ -500,11 +555,13 @@ const App: React.FC = () => {
         endTime: parseISO(manualEnd).toISOString(),
         rate: manualRate,
         clientId: targetClient.id,
-        clientName: targetClient.name
+        clientName: targetClient.name,
+        note: manualNote
       }]);
     }
     setShowManualEntry(false);
     setEditSessionId(null);
+    setManualNote('');
   };
 
   const openManualModal = (session?: WorkSession) => {
@@ -518,6 +575,7 @@ const App: React.FC = () => {
       setManualEndDate(end.split('T')[0]);
       setManualEndTime(end.split('T')[1]);
       setManualRate(session.rate);
+      setManualNote(session.note || '');
       updateSetting('selectedClientId', session.clientId);
     } else {
       const activeClient = settings.clients.find(c => c.id === settings.selectedClientId) || settings.clients[0];
@@ -528,6 +586,7 @@ const App: React.FC = () => {
       setManualEndDate(now.split('T')[0]);
       setManualEndTime(now.split('T')[1]);
       setManualRate(activeClient.hourlyRate);
+      setManualNote('');
     }
     setShowManualEntry(true);
   };
@@ -937,7 +996,7 @@ const App: React.FC = () => {
     return (
       <div className="fade-in" style={{ 
         width: '250px', 
-        height: '80px', 
+        height: '110px', // Increased height to fit notes
         padding: '0 16px', 
         display: 'flex', 
         alignItems: 'center', 
@@ -949,7 +1008,10 @@ const App: React.FC = () => {
         color: 'white',
         position: 'relative',
         overflow: 'hidden',
-        borderRadius: widgetConfig.borderRadius
+        borderRadius: widgetConfig.borderRadius,
+        transition: 'opacity 0.3s ease-in-out',
+        opacity: 0.2, // Default ghost opacity
+        ...( { onMouseEnter: (e: any) => e.currentTarget.style.opacity = '1', onMouseLeave: (e: any) => e.currentTarget.style.opacity = '0.2' } as any )
       }}>
         {/* Drag handle */}
         <div style={{ 
@@ -972,12 +1034,30 @@ const App: React.FC = () => {
           <div className="mono-font" style={{ fontSize: '0.5rem', color: 'var(--accent-color)', letterSpacing: '1px', fontWeight: 800 }}>
             {widgetConfig.label}
           </div>
-          <div className="mono-font" style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
-            {activeSessionId ? sessions.find(s => s.id === activeSessionId)?.clientName : 'SISTEMA_IDLE'}
-          </div>
+          
           <div className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.5px', color: activeSessionId ? 'white' : 'var(--text-secondary)', marginTop: '-2px' }}>
             {activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"}
           </div>
+
+          {/* Quick Note Input */}
+          <input 
+            type="text" 
+            placeholder="¿Qué estás haciendo?" 
+            value={currentNote}
+            onChange={e => setCurrentNote(e.target.value)}
+            className="mono-font"
+            style={{ 
+              background: 'rgba(255,255,255,0.05)', 
+              border: 'none', 
+              borderBottom: '1px solid rgba(255,255,255,0.1)', 
+              color: 'var(--accent-color)', 
+              fontSize: '0.6rem', 
+              width: '100%', 
+              padding: '2px 0',
+              outline: 'none',
+              marginTop: '4px'
+            }}
+          />
         </div>
 
         <div style={{ display: 'flex', gap: '6px' }}>
@@ -1113,9 +1193,28 @@ const App: React.FC = () => {
                        </div>
                     )}
 
-                    <div style={{ fontSize: '6rem', fontWeight: 800, letterSpacing: '-4px', marginBottom: '16px', lineHeight: 1, color: activeSessionId ? 'var(--text-primary)' : 'var(--text-secondary)' }} className="mono-font">
+                    <div style={{ fontSize: '6rem', fontWeight: 800, letterSpacing: '-4px', marginBottom: '8px', lineHeight: 1, color: activeSessionId ? 'var(--text-primary)' : 'var(--text-secondary)' }} className="mono-font">
                       {activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"}
                     </div>
+                    {/* Quick Note Input in Main View */}
+                    <input 
+                      type="text" 
+                      placeholder="¿Qué estás haciendo ahora?" 
+                      value={currentNote}
+                      onChange={e => setCurrentNote(e.target.value)}
+                      className="mono-font"
+                      style={{ 
+                        background: 'rgba(255,255,255,0.05)', 
+                        border: 'none', 
+                        borderBottom: '1px solid var(--accent-glow)', 
+                        color: 'var(--accent-color)', 
+                        fontSize: '0.8rem', 
+                        width: '400px', 
+                        padding: '8px 12px',
+                        outline: 'none',
+                        marginBottom: '16px'
+                      }}
+                    />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <button onClick={activeSessionId ? handlePunchOut : handlePunchIn} className="btn-primary"
@@ -1150,6 +1249,7 @@ const App: React.FC = () => {
                             <div style={{ width: '250px' }}>
                                <div className="mono-font" style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{s.clientName}</div>
                                <div className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{format(parseISO(s.startTime), "HH:mm")} &gt;&gt; {format(parseISO(s.endTime!), "HH:mm")}</div>
+                               {s.note && <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--accent-color)', opacity: 0.8, marginTop: '4px' }}>📝 {s.note}</div>}
                             </div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
@@ -1182,6 +1282,7 @@ const App: React.FC = () => {
                             <div style={{ width: '250px' }}>
                                <div className="mono-font" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{s.clientName}</div>
                                <div className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{format(parseISO(s.startTime), "HH:mm")} &gt;&gt; {format(parseISO(s.endTime!), "HH:mm")}</div>
+                               {s.note && <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', opacity: 0.8, marginTop: '4px' }}>📝 {s.note}</div>}
                             </div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
@@ -1942,6 +2043,15 @@ const App: React.FC = () => {
               <div>
                 <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--accent-color)', marginBottom: '10px' }}>VALOR POR HORA (ARS)</label>
                 <input type="number" value={manualRate} onChange={(e) => setManualRate(Number(e.target.value))} style={{ width: '100%', padding: '12px', background: '#000', border: '1px solid var(--surface-border)', color: 'white', outline: 'none', fontFamily: 'monospace' }} />
+              </div>
+              <div>
+                <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--accent-color)', marginBottom: '10px' }}>NOTA / DESCRIPCIÓN</label>
+                <textarea 
+                  value={manualNote} 
+                  onChange={(e) => setManualNote(e.target.value)} 
+                  placeholder="Ej: Reunión de planificación, corrección de bugs..."
+                  style={{ width: '100%', height: '80px', padding: '12px', background: '#000', border: '1px solid var(--surface-border)', color: 'white', outline: 'none', fontFamily: 'monospace', resize: 'none' }} 
+                />
               </div>
               <div style={{ display: 'flex', gap: '16px', marginTop: '12px' }}>
                 <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>GUARDAR</button>

@@ -130,7 +130,7 @@ function createWidgetWindow() {
 
   widgetWindow = new BrowserWindow({
     width: 250,
-    height: 80,
+    height: 110,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
