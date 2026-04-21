@@ -1369,12 +1369,15 @@ const App: React.FC = () => {
             {/* SECCION 0 - TEMAS */}
             <div className="premium-card" style={{ borderLeft: '4px solid var(--accent-color)' }}>
               <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.9rem', marginBottom: '24px' }}>0. NÚCLEO ESTÉTICO (TEMAS)</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
                 {[
                   { id: 'cyberpunk', name: 'CYBERPUNK', color: '#0ea5e9', desc: 'Futurista Neón' },
                   { id: 'matrix', name: 'MATRIX', color: '#00ff41', desc: 'Digital Rain' },
                   { id: 'minimal', name: 'MINIMAL', color: '#0f172a', desc: 'Limpio y Claro' },
-                  { id: 'deep-ocean', name: 'DEEP OCEAN', color: '#38bdf8', desc: 'Abismo Profundo' }
+                  { id: 'deep-ocean', name: 'DEEP OCEAN', color: '#38bdf8', desc: 'Abismo Profundo' },
+                  { id: 'harry-potter', name: 'H. POTTER', color: '#d4af37', desc: 'Mágico y Antiguo' },
+                  { id: 'marvel', name: 'AVENGERS', color: '#ed1d24', desc: 'Héroes y Acero' },
+                  { id: 'loki', name: 'TVA LOKI', color: '#d47522', desc: 'Retro-Futurista' }
                 ].map(t => (
                   <div 
                     key={t.id}

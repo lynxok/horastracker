@@ -68,6 +68,57 @@
   --glass-reflection: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
 }
 
+:root[data-theme='harry-potter'] {
+  --bg-color: #1a0a0a;
+  --surface-color: rgba(42, 15, 15, 0.6);
+  --surface-border: rgba(212, 175, 55, 0.3);
+  --accent-color: #d4af37; /* Gold */
+  --accent-glow: rgba(212, 175, 55, 0.4);
+  --accent-secondary: #740001; /* Gryffindor Red */
+  --text-primary: #f3e5ab;
+  --text-secondary: #c5a059;
+  --success: #2e7d32;
+  --success-glow: rgba(46, 125, 50, 0.2);
+  --danger: #b71c1c;
+  --danger-glow: rgba(183, 28, 28, 0.2);
+  --transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  --glass-reflection: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, transparent 100%);
+}
+
+:root[data-theme='marvel'] {
+  --bg-color: #0f0f0f;
+  --surface-color: rgba(237, 29, 36, 0.05);
+  --surface-border: rgba(237, 29, 36, 0.4);
+  --accent-color: #ed1d24; /* Marvel Red */
+  --accent-glow: rgba(237, 29, 36, 0.5);
+  --accent-secondary: #2d6a4f;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --success: #00ff00;
+  --success-glow: rgba(0, 255, 0, 0.2);
+  --danger: #ff0000;
+  --danger-glow: rgba(255, 0, 0, 0.2);
+  --transition: all 0.3s ease-out;
+  --glass-reflection: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+}
+
+:root[data-theme='loki'] {
+  --bg-color: #1a150f;
+  --surface-color: rgba(212, 117, 34, 0.08);
+  --surface-border: rgba(212, 117, 34, 0.4);
+  --accent-color: #d47522; /* TVA Orange */
+  --accent-glow: rgba(212, 117, 34, 0.5);
+  --accent-secondary: #5a7d6c; /* Variant Green */
+  --text-primary: #e6d5b8;
+  --text-secondary: #8b7d6b;
+  --success: #3c9d70;
+  --success-glow: rgba(60, 157, 112, 0.2);
+  --danger: #cf4a30;
+  --danger-glow: rgba(207, 74, 48, 0.2);
+  --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  --glass-reflection: linear-gradient(135deg, rgba(212, 117, 34, 0.1) 0%, transparent 100%);
+}
+
 :root {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
