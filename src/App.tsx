@@ -13,7 +13,7 @@ import {
   isWithinInterval, parseISO 
 } from 'date-fns';
 
-const APP_VERSION = '2.2.4';
+const APP_VERSION = '2.3.0';
 
 // --- TYPES ---
 declare global {
@@ -52,6 +52,8 @@ declare global {
       closeToast: () => void;
       onStartSessionFromToast: (callback: (client: any) => void) => void;
       toastActionStart: (client: any) => void;
+      openWidget: () => void;
+      closeWidget: () => void;
     }
   }
 }
@@ -160,6 +162,7 @@ const App: React.FC = () => {
   const [updateStatus, setUpdateStatus] = useState<'available' | 'downloaded' | 'idle' | 'checking' | 'not-available' | 'error'>('idle');
   const [appVersion, setAppVersion] = useState<string>('...');
   const [isToastView, setIsToastView] = useState(false);
+  const [isWidgetView, setIsWidgetView] = useState(false);
   const [toastData, setToastData] = useState<any>(null);
   const [isInvoicing, setIsInvoicing] = useState(false);
 
@@ -307,6 +310,8 @@ const App: React.FC = () => {
           console.error('Error parsing toast data', e);
         }
       }
+    } else if (params.get('view') === 'widget') {
+      setIsWidgetView(true);
     }
   }, []);
 
@@ -880,6 +885,65 @@ const App: React.FC = () => {
     );
   }
 
+  if (isWidgetView) {
+    return (
+      <div className="fade-in" style={{ 
+        width: '250px', 
+        height: '80px', 
+        padding: '0 16px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '12px', 
+        border: '1px solid var(--accent-color)', 
+        background: 'rgba(2, 6, 23, 0.8)', 
+        backdropFilter: 'blur(20px)', 
+        boxShadow: '0 0 20px rgba(0, 0, 0, 0.5)', 
+        color: 'white',
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: '0' // Following the professional squared style of the app
+      }}>
+        {/* Drag handle */}
+        <div style={{ 
+          position: 'absolute', top: 0, left: 0, bottom: 0, width: '6px', 
+          background: activeSessionId ? 'var(--accent-color)' : 'var(--text-secondary)',
+          cursor: 'move',
+          ...( { WebkitAppRegion: 'drag' } as any )
+        }}></div>
+
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', marginLeft: '6px' }}>
+          <div className="mono-font" style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', letterSpacing: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {activeSessionId ? sessions.find(s => s.id === activeSessionId)?.clientName : 'EN ESPERA'}
+          </div>
+          <div className="mono-font" style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-1px', color: activeSessionId ? 'white' : 'var(--text-secondary)' }}>
+            {activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            onClick={activeSessionId ? handlePunchOut : handlePunchIn} 
+            className="btn-primary"
+            style={{ 
+              width: '40px', height: '40px', padding: 0, justifyContent: 'center',
+              background: activeSessionId ? 'var(--danger)' : 'transparent',
+              borderColor: activeSessionId ? 'var(--danger)' : 'var(--accent-color)',
+              boxShadow: activeSessionId ? '0 0 15px var(--danger-glow)' : '0 0 10px var(--accent-glow)'
+            }}>
+            {activeSessionId ? <Square fill="currentColor" size={18} /> : <Play fill="currentColor" size={18} style={{ marginLeft: '2px' }} />}
+          </button>
+          
+          <button 
+            onClick={() => window.electronAPI?.closeWidget()}
+            className="btn-secondary"
+            style={{ width: '32px', height: '32px', padding: 0, justifyContent: 'center', background: 'rgba(255,255,255,0.05)' }}>
+            <Maximize2 size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Render LOCK SCREEN
   if (!isUnlocked) {
     return (
@@ -993,10 +1057,18 @@ const App: React.FC = () => {
                       {activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"}
                     </div>
                   </div>
-                  <button onClick={activeSessionId ? handlePunchOut : handlePunchIn} className="btn-primary"
-                    style={{ width: '120px', height: '120px', borderRadius: '0', justifyContent: 'center', background: activeSessionId ? 'var(--danger)' : 'transparent', borderColor: activeSessionId ? 'var(--danger)' : 'var(--accent-color)', color: activeSessionId ? 'white' : 'var(--accent-color)', boxShadow: activeSessionId ? '0 0 40px var(--danger-glow)' : '0 0 30px var(--accent-glow)' }}>
-                    {activeSessionId ? <Square fill="currentColor" size={40} /> : <Play fill="currentColor" size={40} style={{ marginLeft: '8px' }} />}
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <button onClick={activeSessionId ? handlePunchOut : handlePunchIn} className="btn-primary"
+                      style={{ width: '120px', height: '120px', borderRadius: '0', justifyContent: 'center', background: activeSessionId ? 'var(--danger)' : 'transparent', borderColor: activeSessionId ? 'var(--danger)' : 'var(--accent-color)', color: activeSessionId ? 'white' : 'var(--accent-color)', boxShadow: activeSessionId ? '0 0 40px var(--danger-glow)' : '0 0 30px var(--accent-glow)' }}>
+                      {activeSessionId ? <Square fill="currentColor" size={40} /> : <Play fill="currentColor" size={40} style={{ marginLeft: '8px' }} />}
+                    </button>
+                    <button 
+                      onClick={() => window.electronAPI?.openWidget()}
+                      className="btn-secondary" 
+                      style={{ fontSize: '0.6rem', padding: '8px', justifyContent: 'center', gap: '8px', borderStyle: 'dashed' }}>
+                      <Minus size={14} /> MODO WIDGET
+                    </button>
+                  </div>
                 </div>
               </div>
 

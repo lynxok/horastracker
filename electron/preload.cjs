@@ -33,5 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   syncMonitoringData: (data) => ipcRenderer.send('sync-monitoring-data', data),
   closeToast: () => ipcRenderer.send('close-toast'),
   onStartSessionFromToast: (callback) => ipcRenderer.on('start-session-from-toast', (event, client) => callback(client)),
-  toastActionStart: (client) => ipcRenderer.send('toast-action-start', client)
+  toastActionStart: (client) => ipcRenderer.send('toast-action-start', client),
+  openWidget: () => ipcRenderer.send('open-widget'),
+  closeWidget: () => ipcRenderer.send('close-widget')
 });

@@ -55,6 +55,7 @@ const dataFilePath = path.join(userDataPath, 'session_data.json');
 
 let tray = null;
 let mainWindow = null;
+let widgetWindow = null;
 let minimizeToTray = false; 
 
 function createWindow() {
@@ -119,6 +120,44 @@ function createWindow() {
   
   // Initial check on launch
   autoUpdater.checkForUpdatesAndNotify();
+}
+
+function createWidgetWindow() {
+  if (widgetWindow) {
+    widgetWindow.show();
+    return;
+  }
+
+  widgetWindow = new BrowserWindow({
+    width: 250,
+    height: 80,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  const widgetUrl = isDev 
+    ? 'http://localhost:5173?view=widget' 
+    : `file://${path.join(__dirname, '../dist/index.html')}?view=widget`;
+
+  if (isDev) {
+    widgetWindow.loadURL(widgetUrl);
+  } else {
+    // In production, loadFile doesn't support query params directly in some versions, 
+    // so we use loadURL with file:// protocol
+    widgetWindow.loadURL(widgetUrl);
+  }
+
+  widgetWindow.on('closed', () => {
+    widgetWindow = null;
+  });
 }
 
 function createTray() {
@@ -249,6 +288,22 @@ ipcMain.on('window-close', () => {
 
 ipcMain.handle('restart-app', () => {
   autoUpdater.quitAndInstall();
+});
+
+// Widget Handlers
+ipcMain.on('open-widget', () => {
+  createWidgetWindow();
+  if (mainWindow) mainWindow.hide();
+});
+
+ipcMain.on('close-widget', () => {
+  if (widgetWindow) {
+    widgetWindow.close();
+  }
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+  }
 });
 
 // Settings Handlers
