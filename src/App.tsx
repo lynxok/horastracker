@@ -5,7 +5,7 @@ import {
   Play, Square, History, Settings as SettingsIcon, 
   Trash2, Shield, Activity, X, 
   Minus, Maximize2, Pencil, BarChart3, Clock, 
-  Lock
+  Lock, Bird, Zap, Terminal, Hourglass, Cpu
 } from 'lucide-react';
 import { 
   format, differenceInSeconds, startOfMonth, endOfMonth, 
@@ -13,7 +13,7 @@ import {
   isWithinInterval, parseISO 
 } from 'date-fns';
 
-const APP_VERSION = '2.3.0';
+const APP_VERSION = '2.3.2';
 
 // --- TYPES ---
 declare global {
@@ -886,6 +886,54 @@ const App: React.FC = () => {
   }
 
   if (isWidgetView) {
+    const getThemeWidgetConfig = () => {
+      switch(settings.theme) {
+        case 'harry-potter':
+          return {
+            icon: <Bird size={24} color="var(--accent-color)" />,
+            borderRadius: '20px 20px 5px 5px',
+            border: '2px solid var(--accent-color)',
+            background: 'linear-gradient(135deg, #2a0f0f 0%, #1a0a0a 100%)',
+            label: '🦉 MENSAJERÍA HEDWIG'
+          };
+        case 'marvel':
+          return {
+            icon: <Zap size={24} color="var(--accent-color)" />,
+            borderRadius: '0',
+            border: '3px solid var(--accent-color)',
+            background: 'rgba(15, 15, 15, 0.9)',
+            label: '🛡️ AVENGERS PROTOCOL'
+          };
+        case 'loki':
+          return {
+            icon: <Hourglass size={24} color="var(--accent-color)" />,
+            borderRadius: '12px',
+            border: '2px solid var(--accent-color)',
+            background: '#1a150f',
+            label: '⏳ TVA TIME-SLOT'
+          };
+        case 'matrix':
+          return {
+            icon: <Terminal size={24} color="var(--accent-color)" />,
+            borderRadius: '0',
+            border: '1px solid var(--accent-color)',
+            background: '#000',
+            label: '> SYSTEM_TRACKER'
+          };
+        case 'cyberpunk':
+        default:
+          return {
+            icon: <Cpu size={24} color="var(--accent-color)" />,
+            borderRadius: '4px',
+            border: '1px solid var(--accent-color)',
+            background: 'rgba(2, 6, 23, 0.9)',
+            label: '⚡ NEURAL_LINK'
+          };
+      }
+    };
+
+    const widgetConfig = getThemeWidgetConfig();
+
     return (
       <div className="fade-in" style={{ 
         width: '250px', 
@@ -894,50 +942,62 @@ const App: React.FC = () => {
         display: 'flex', 
         alignItems: 'center', 
         gap: '12px', 
-        border: '1px solid var(--accent-color)', 
-        background: 'rgba(2, 6, 23, 0.8)', 
+        border: widgetConfig.border, 
+        background: widgetConfig.background, 
         backdropFilter: 'blur(20px)', 
-        boxShadow: '0 0 20px rgba(0, 0, 0, 0.5)', 
+        boxShadow: `0 0 20px ${settings.theme === 'minimal' ? 'rgba(0,0,0,0.1)' : 'var(--accent-glow)'}`, 
         color: 'white',
         position: 'relative',
         overflow: 'hidden',
-        borderRadius: '0' // Following the professional squared style of the app
+        borderRadius: widgetConfig.borderRadius
       }}>
         {/* Drag handle */}
         <div style={{ 
-          position: 'absolute', top: 0, left: 0, bottom: 0, width: '6px', 
-          background: activeSessionId ? 'var(--accent-color)' : 'var(--text-secondary)',
+          position: 'absolute', top: 0, left: 0, bottom: 0, width: '8px', 
+          background: activeSessionId ? 'var(--accent-color)' : 'rgba(255,255,255,0.1)',
           cursor: 'move',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           ...( { WebkitAppRegion: 'drag' } as any )
-        }}></div>
+        }}>
+          <div style={{ width: '2px', height: '20px', background: 'rgba(255,255,255,0.2)', borderRadius: '1px' }}></div>
+        </div>
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', marginLeft: '6px' }}>
-          <div className="mono-font" style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', letterSpacing: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {activeSessionId ? sessions.find(s => s.id === activeSessionId)?.clientName : 'EN ESPERA'}
+        <div style={{ marginLeft: '4px' }}>
+          {widgetConfig.icon}
+        </div>
+
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0px' }}>
+          <div className="mono-font" style={{ fontSize: '0.5rem', color: 'var(--accent-color)', letterSpacing: '1px', fontWeight: 800 }}>
+            {widgetConfig.label}
           </div>
-          <div className="mono-font" style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-1px', color: activeSessionId ? 'white' : 'var(--text-secondary)' }}>
+          <div className="mono-font" style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
+            {activeSessionId ? sessions.find(s => s.id === activeSessionId)?.clientName : 'SISTEMA_IDLE'}
+          </div>
+          <div className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.5px', color: activeSessionId ? 'white' : 'var(--text-secondary)', marginTop: '-2px' }}>
             {activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"}
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '6px' }}>
           <button 
             onClick={activeSessionId ? handlePunchOut : handlePunchIn} 
             className="btn-primary"
             style={{ 
-              width: '40px', height: '40px', padding: 0, justifyContent: 'center',
+              width: '36px', height: '36px', padding: 0, justifyContent: 'center',
               background: activeSessionId ? 'var(--danger)' : 'transparent',
               borderColor: activeSessionId ? 'var(--danger)' : 'var(--accent-color)',
               boxShadow: activeSessionId ? '0 0 15px var(--danger-glow)' : '0 0 10px var(--accent-glow)'
             }}>
-            {activeSessionId ? <Square fill="currentColor" size={18} /> : <Play fill="currentColor" size={18} style={{ marginLeft: '2px' }} />}
+            {activeSessionId ? <Square fill="currentColor" size={16} /> : <Play fill="currentColor" size={16} style={{ marginLeft: '2px' }} />}
           </button>
           
           <button 
             onClick={() => window.electronAPI?.closeWidget()}
             className="btn-secondary"
-            style={{ width: '32px', height: '32px', padding: 0, justifyContent: 'center', background: 'rgba(255,255,255,0.05)' }}>
-            <Maximize2 size={16} />
+            style={{ width: '28px', height: '28px', padding: 0, justifyContent: 'center', background: 'rgba(255,255,255,0.05)', border: 'none' }}>
+            <Maximize2 size={14} />
           </button>
         </div>
       </div>
