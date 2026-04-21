@@ -64,6 +64,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "public/app_icon.png",
       "public/icons/**/*"
     ],
     "extraResources": [

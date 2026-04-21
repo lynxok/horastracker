@@ -2,14 +2,14 @@ const { imagesToIco } = require('png-to-ico');
 const fs = require('fs');
 const path = require('path');
 
-const input = path.join(__dirname, '../public/Icono mas lindo.png');
-const output = path.join(__dirname, '../public/icons/icon.ico');
+const inputPath = path.join(__dirname, '../public/app_icon.png');
+const outputPath = path.join(__dirname, '../public/icons/icon.ico');
 
-imagesToIco([input])
+imagesToIco([inputPath])
   .then(buf => {
-    fs.writeFileSync(output, buf);
-    console.log('✅ icon.ico generado con el nuevo logo LYNX');
+    fs.writeFileSync(outputPath, buf);
+    console.log('✅ icon.ico generado correctamente desde app_icon.png');
   })
   .catch(err => {
-    console.error('❌ Error:', err.message);
+    console.error('❌ Error:', err);
   });
