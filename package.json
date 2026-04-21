@@ -1,7 +1,7 @@
 {
   "name": "tracker-de-horas",
   "private": true,
-  "version": "2.2.6",
+  "version": "2.2.7",
   "main": "electron/main.cjs",
   "repository": {
     "type": "git",
@@ -90,8 +90,6 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Tracker de Horas",
       "artifactName": "Tracker_de_Horas_${version}_Setup.exe",
-      "installerIcon": "public/app_icon.png",
-      "uninstallerIcon": "public/app_icon.png",
       "allowElevation": true,
       "deleteAppDataOnUninstall": false
     }
