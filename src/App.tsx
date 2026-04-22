@@ -326,6 +326,10 @@ const App: React.FC = () => {
       }
     } else if (params.get('view') === 'widget') {
       setIsWidgetView(true);
+      // Force transparency for widget mode
+      document.body.style.background = 'transparent';
+      document.body.style.backgroundImage = 'none';
+      document.documentElement.style.background = 'transparent';
     }
   }, []);
 
@@ -1082,8 +1086,8 @@ const App: React.FC = () => {
 
     return (
       <div className="fade-in" style={{ 
-        width: '260px', 
-        height: '110px', 
+        width: '100vw', 
+        height: '100vh', 
         padding: '0 16px', 
         display: 'flex', 
         alignItems: 'center', 
@@ -1247,30 +1251,6 @@ const App: React.FC = () => {
     );
   }
 
-  // --- WIDGET VIEW ---
-  if (isWidgetView) {
-    const activeS = sessions.find(s => s.id === activeSessionId);
-    return (
-      <div className="fade-in" style={{ height: '100vh', display: 'flex', alignItems: 'center', padding: '0 15px', background: `rgba(15, 23, 42, ${settings.widgetOpacity || 0.4})`, backdropFilter: 'blur(10px)', border: '1px solid var(--surface-border)', overflow: 'hidden' }}>
-        <div style={{ flex: 1 }}>
-          <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--accent-color)', opacity: 0.8, marginBottom: '2px' }}>
-            {activeS ? activeS.clientName.substring(0, 20) + '...' : 'EN ESPERA'}
-          </div>
-          <div className="mono-font" style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-1px' }}>
-            {activeS ? formatDuration(differenceInSeconds(now, parseISO(activeS.startTime)) / 3600) : "00:00:00"}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={activeS ? handlePunchOut : handlePunchIn} style={{ background: 'none', border: `1px solid ${activeS ? 'var(--danger)' : 'var(--accent-color)'}`, color: activeS ? 'var(--danger)' : 'var(--accent-color)', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {activeS ? <Square size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
-          </button>
-          <button onClick={() => window.electronAPI?.closeWidget()} style={{ background: 'none', border: '1px solid var(--surface-border)', color: 'var(--text-secondary)', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Maximize2 size={14} />
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   // APP RENDER
   return (
