@@ -35,5 +35,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onStartSessionFromToast: (callback) => ipcRenderer.on('start-session-from-toast', (event, client) => callback(client)),
   toastActionStart: (client) => ipcRenderer.send('toast-action-start', client),
   openWidget: () => ipcRenderer.send('open-widget'),
-  closeWidget: () => ipcRenderer.send('close-widget')
+  closeWidget: () => ipcRenderer.send('close-widget'),
+  openBackupsFolder: () => ipcRenderer.invoke('open-backups-folder'),
+  deepScanData: () => ipcRenderer.invoke('deep-scan-data'),
+  importDataFromPath: (path) => ipcRenderer.invoke('import-data-from-path', path)
 });

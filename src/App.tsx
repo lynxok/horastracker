@@ -5,7 +5,7 @@ import {
   Play, Square, History, Settings as SettingsIcon, 
   Trash2, Shield, Activity, X, 
   Minus, Maximize2, Pencil, BarChart3, Clock, 
-  Lock, Bird, Zap, Terminal, Hourglass, Cpu, GripVertical
+  Lock, Bird, Zap, Terminal, Hourglass, Cpu, GripVertical, Database, Search
 } from 'lucide-react';
 import { 
   format, differenceInSeconds, startOfMonth, endOfMonth, 
@@ -161,6 +161,8 @@ const App: React.FC = () => {
   // ARCA Specific State
   const [arcaTesting, setArcaTesting] = useState(false);
   const [arcaStatus, setArcaStatus] = useState<{ msg: string; type: 'success' | 'error' | 'idle' }>({ msg: '', type: 'idle' });
+  const [recoveryFiles, setRecoveryFiles] = useState<any[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
   const [activeZoneClient, setActiveZoneClient] = useState<Client | null>(null);
   const [updateStatus, setUpdateStatus] = useState<'available' | 'downloaded' | 'idle' | 'checking' | 'not-available' | 'error'>('idle');
   const [appVersion, setAppVersion] = useState<string>('...');
@@ -486,6 +488,40 @@ const App: React.FC = () => {
   }, [billedMonths, settings.monthlyGoal]);
 
   const activeSession = sessions.find(s => s.id === activeSessionId);
+
+  // Recovery Assistant Handlers
+  const scanHistoricalData = async () => {
+    if (!window.electronAPI) return;
+    setIsScanning(true);
+    try {
+      const results = await window.electronAPI.deepScanData();
+      setRecoveryFiles(results);
+      if (results.length === 0) {
+        alert("No se encontraron archivos de sesiones anteriores en las carpetas conocidas.");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const importHistoricalData = async (filePath: string) => {
+    if (!window.electronAPI) return;
+    if (!confirm("¿Estás seguro de que quieres importar estos datos? Se reemplazará el historial actual (aunque se guardará un backup de seguridad).")) return;
+    
+    try {
+      const res = await window.electronAPI.importDataFromPath(filePath);
+      if (res.success) {
+        alert("¡Datos importados con éxito! La aplicación se reiniciará para cargar los cambios.");
+        window.electronAPI.restartApp();
+      } else {
+        alert("Error al importar: " + res.error);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // Handlers
   const startSession = (client: Client) => {
@@ -1668,6 +1704,72 @@ const App: React.FC = () => {
                   <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>CLAVE DE ACCESO LOCAL</label>
                   <input type="password" value={settings.appPassword || ''} onChange={e => updateSetting('appPassword', e.target.value)} placeholder="Dejar vacío para desactivar"
                     style={{ width: '100%', maxWidth: '400px', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
+                </div>
+                
+                {/* BACKUP SYSTEM UI */}
+                <div style={{ marginTop: '12px', padding: '16px', background: 'rgba(14, 165, 233, 0.05)', border: '1px solid rgba(14, 165, 233, 0.2)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div className="mono-font" style={{ fontSize: '0.8rem', color: 'var(--accent-color)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Database size={14} /> SISTEMA DE PROTECCIÓN DE DATOS
+                      </div>
+                      <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        UBICACIÓN: {dataPath || 'Cargando...'}
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => window.electronAPI?.openBackupsFolder()} 
+                      className="btn-secondary" 
+                      style={{ padding: '8px 16px', fontSize: '0.65rem', borderColor: 'var(--accent-color)', color: 'var(--accent-color)' }}>
+                      ABRIR CARPETA DE BACKUPS
+                    </button>
+                  </div>
+                  <div className="mono-font" style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', marginTop: '12px' }}>
+                    * Se crea una copia de seguridad automática cada vez que se guardan cambios. El sistema conserva los últimos 10 estados para recuperación ante fallos.
+                  </div>
+                </div>
+
+                {/* RECOVERY ASSISTANT UI */}
+                <div style={{ marginTop: '24px', padding: '24px', background: 'rgba(255, 255, 255, 0.03)', border: '1px dashed var(--accent-color)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <div>
+                      <div className="mono-font" style={{ fontSize: '0.8rem', color: 'var(--accent-color)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Search size={14} /> ASISTENTE DE RECUPERACIÓN LYNX
+                      </div>
+                      <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        Si perdiste tus horas al actualizar, usa esta herramienta para rastrear archivos antiguos.
+                      </div>
+                    </div>
+                    <button 
+                      onClick={scanHistoricalData} 
+                      disabled={isScanning}
+                      className="btn-primary" 
+                      style={{ padding: '10px 24px', fontSize: '0.7rem' }}>
+                      {isScanning ? 'ESCANEANDO PC...' : 'BUSCAR DATOS PERDIDOS'}
+                    </button>
+                  </div>
+
+                  {recoveryFiles.length > 0 && (
+                    <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--warning)', fontWeight: 800 }}>RESULTADOS ENCONTRADOS:</div>
+                      {recoveryFiles.map((file, idx) => (
+                        <div key={idx} style={{ padding: '16px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--surface-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <div className="mono-font" style={{ fontSize: '0.75rem', fontWeight: 800 }}>Carpeta: {file.folderName}</div>
+                            <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>
+                              SESIONES: {file.sessions} | FACTURAS: {file.months} | ÚLTIMO USO: {new Date(file.mtime).toLocaleString()}
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => importHistoricalData(file.path)}
+                            className="btn-secondary" 
+                            style={{ padding: '8px 16px', fontSize: '0.65rem', borderColor: 'var(--success)', color: 'var(--success)' }}>
+                            IMPORTAR ESTE ARCHIVO
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

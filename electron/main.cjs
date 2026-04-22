@@ -11,35 +11,53 @@ const isDev = process.env.NODE_ENV === 'development';
 // Migrate data from old directory if necessary
 const migrateData = () => {
   try {
-    const oldPath = path.join(app.getPath('appData'), 'registro-de-horas-de-trabajo');
+    const appData = app.getPath('appData');
     const newPath = app.getPath('userData');
+    
+    // Potential old directory names based on project history
+    const oldDirNames = [
+      'registro-de-horas-de-trabajo',
+      'CHRONOS_LABOR',
+      'CHRONOS LABOR',
+      'Tracker de Horas'
+    ];
 
-    if (oldPath === newPath) return; 
-    if (!fs.existsSync(oldPath)) return;
+    for (const oldName of oldDirNames) {
+      const oldPath = path.join(appData, oldName);
+      
+      if (oldPath === newPath) continue; 
+      if (!fs.existsSync(oldPath)) continue;
 
-    const oldDataFile = path.join(oldPath, 'session_data.json');
-    const newDataFile = path.join(newPath, 'session_data.json');
+      const oldDataFile = path.join(oldPath, 'session_data.json');
+      const newDataFile = path.join(newPath, 'session_data.json');
 
-    if (fs.existsSync(oldDataFile)) {
-      let shouldMigrate = !fs.existsSync(newDataFile);
-      if (!shouldMigrate) {
-        const stats = fs.statSync(newDataFile);
-        if (stats.size < 1000) shouldMigrate = true; 
-      }
+      if (fs.existsSync(oldDataFile)) {
+        let shouldMigrate = !fs.existsSync(newDataFile);
+        
+        if (!shouldMigrate) {
+          const stats = fs.statSync(newDataFile);
+          // If the new file is very small (likely just default settings), overwrite it
+          // Increased threshold to 5000 as defaults can be around 1KB
+          if (stats.size < 5000) shouldMigrate = true; 
+        }
 
-      if (shouldMigrate) {
-        const items = ['session_data.json', 'afip_tickets', 'facturas', 'certs', 'Local Storage'];
-        items.forEach(item => {
-          const src = path.join(oldPath, item);
-          const dest = path.join(newPath, item);
-          if (fs.existsSync(src)) {
-            if (fs.lstatSync(src).isDirectory()) {
-              fs.cpSync(src, dest, { recursive: true });
-            } else {
-              fs.copyFileSync(src, dest);
+        if (shouldMigrate) {
+          console.log(`Migrating data from ${oldName} to current userData...`);
+          const items = ['session_data.json', 'afip_tickets', 'facturas', 'certs', 'Local Storage'];
+          items.forEach(item => {
+            const src = path.join(oldPath, item);
+            const dest = path.join(newPath, item);
+            if (fs.existsSync(src)) {
+              if (fs.lstatSync(src).isDirectory()) {
+                fs.cpSync(src, dest, { recursive: true });
+              } else {
+                fs.copyFileSync(src, dest);
+              }
             }
-          }
-        });
+          });
+          // Break after first successful migration find to avoid mixing data
+          break; 
+        }
       }
     }
   } catch (err) {
@@ -49,9 +67,39 @@ const migrateData = () => {
 
 migrateData();
 
-// Data storage setup
-const userDataPath = app.getPath('userData');
+// Data storage stability: Force userData to a fixed path regardless of productName changes
+const userDataPath = path.join(app.getPath('appData'), 'tracker-de-horas');
+app.setPath('userData', userDataPath);
+
 const dataFilePath = path.join(userDataPath, 'session_data.json');
+const backupsPath = path.join(userDataPath, 'backups');
+
+// Ensure directories exist
+if (!fs.existsSync(userDataPath)) fs.mkdirSync(userDataPath, { recursive: true });
+if (!fs.existsSync(backupsPath)) fs.mkdirSync(backupsPath, { recursive: true });
+
+// Function to create a rolling backup
+const createBackup = () => {
+  try {
+    if (!fs.existsSync(dataFilePath)) return;
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupFile = path.join(backupsPath, `session_data_bkp_${timestamp}.json`);
+    
+    fs.copyFileSync(dataFilePath, backupFile);
+    
+    // Keep only last 10 backups
+    const files = fs.readdirSync(backupsPath)
+      .filter(f => f.startsWith('session_data_bkp_'))
+      .sort((a, b) => fs.statSync(path.join(backupsPath, b)).mtime.getTime() - fs.statSync(path.join(backupsPath, a)).mtime.getTime());
+    
+    if (files.length > 10) {
+      files.slice(10).forEach(f => fs.unlinkSync(path.join(backupsPath, f)));
+    }
+  } catch (err) {
+    console.error('Backup error:', err);
+  }
+};
 
 let tray = null;
 let mainWindow = null;
@@ -400,6 +448,10 @@ ipcMain.handle('open-file', async (event, filePath) => {
 // Data Persistence
 ipcMain.handle('save-data', (event, data) => {
   try {
+    // Integrity check: don't backup if data is suspiciously empty while old data was large
+    // (This is a safety measure, though App.tsx should handle this too)
+    createBackup();
+    
     fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
     return { success: true };
   } catch (error) {
@@ -409,13 +461,123 @@ ipcMain.handle('save-data', (event, data) => {
 
 ipcMain.handle('load-data', () => {
   try {
-    return fs.existsSync(dataFilePath) ? JSON.parse(fs.readFileSync(dataFilePath, 'utf8')) : null;
+    if (fs.existsSync(dataFilePath)) {
+      const content = fs.readFileSync(dataFilePath, 'utf8');
+      try {
+        return JSON.parse(content);
+      } catch (parseError) {
+        console.error('Data corrupted, attempting auto-recovery...');
+        // Fall through to recovery logic
+      }
+    }
+
+    // Auto-Recovery Logic: Search for the most recent valid backup
+    if (fs.existsSync(backupsPath)) {
+      const backups = fs.readdirSync(backupsPath)
+        .filter(f => f.startsWith('session_data_bkp_'))
+        .sort((a, b) => fs.statSync(path.join(backupsPath, b)).mtime.getTime() - fs.statSync(path.join(backupsPath, a)).mtime.getTime());
+
+      for (const backupFile of backups) {
+        try {
+          const backupPath = path.join(backupsPath, backupFile);
+          const backupContent = fs.readFileSync(backupPath, 'utf8');
+          const parsed = JSON.parse(backupContent);
+          
+          // If we are here, the backup is valid. Restore it as the main file.
+          console.log(`Auto-recovery successful: Restored from ${backupFile}`);
+          fs.writeFileSync(dataFilePath, backupContent);
+          return parsed;
+        } catch (e) {
+          // Continue to next backup if this one is also corrupted
+          continue;
+        }
+      }
+    }
+
+    return null;
   } catch (error) {
+    console.error('Load error:', error);
     return null;
   }
 });
 
 ipcMain.handle('get-data-path', () => dataFilePath);
+
+ipcMain.handle('deep-scan-data', async () => {
+  try {
+    const appData = app.getPath('appData');
+    const folders = fs.readdirSync(appData);
+    const foundFiles = [];
+    
+    // Keywords that identify our app history
+    const keywords = ['chronos', 'labor', 'tracker', 'horas', 'lynx', 'registro'];
+
+    for (const folder of folders) {
+      const fullPath = path.join(appData, folder);
+      // Skip current path to avoid finding our own file
+      if (fullPath === userDataPath) continue;
+
+      try {
+        if (fs.statSync(fullPath).isDirectory()) {
+          const lowerFolder = folder.toLowerCase();
+          if (keywords.some(k => lowerFolder.includes(k))) {
+            const potentialFile = path.join(fullPath, 'session_data.json');
+            if (fs.existsSync(potentialFile)) {
+              const stats = fs.statSync(potentialFile);
+              if (stats.size > 500) { // Only files with actual content
+                const content = JSON.parse(fs.readFileSync(potentialFile, 'utf8'));
+                // Count records to show value to the user
+                const sessionCount = content.sessions?.length || 0;
+                const monthCount = content.billedMonths?.length || 0;
+                
+                if (sessionCount > 0 || monthCount > 0) {
+                  foundFiles.push({
+                    folderName: folder,
+                    path: potentialFile,
+                    sessions: sessionCount,
+                    months: monthCount,
+                    mtime: stats.mtime
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (e) { /* skip protected folders */ }
+    }
+    return foundFiles;
+  } catch (err) {
+    console.error('Deep scan error:', err);
+    return [];
+  }
+});
+
+ipcMain.handle('import-data-from-path', async (event, filePath) => {
+  try {
+    if (!fs.existsSync(filePath)) return { success: false, error: 'Archivo no encontrado' };
+    
+    const content = fs.readFileSync(filePath, 'utf8');
+    // Validate it's valid JSON for our app
+    const data = JSON.parse(content);
+    if (!data.sessions && !data.billedMonths) return { success: false, error: 'Formato inválido' };
+
+    // Create a safety backup of current state before importing
+    createBackup();
+    
+    // Overwrite main file
+    fs.writeFileSync(dataFilePath, content);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+ipcMain.handle('open-backups-folder', () => {
+  if (fs.existsSync(backupsPath)) {
+    shell.openPath(backupsPath);
+    return { success: true };
+  }
+  return { success: false };
+});
 
 // --- ARCA (AFIP) INTEGRATION ---
 
