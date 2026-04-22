@@ -13,7 +13,7 @@ import {
   isWithinInterval, parseISO 
 } from 'date-fns';
 
-const APP_VERSION = '2.3.16';
+const APP_VERSION = '2.3.17';
 
 // --- TYPES ---
 declare global {
@@ -117,7 +117,7 @@ interface AppSettings {
     productionMode: boolean;
   };
   invoicePath?: string;
-  theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean' | 'harry-potter' | 'marvel' | 'loki';
+  theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean' | 'harry-potter' | 'marvel' | 'loki' | 'winamp';
   widgetOpacity: number;
 }
 
