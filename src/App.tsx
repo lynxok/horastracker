@@ -5,7 +5,7 @@ import {
   Play, Square, History, Settings as SettingsIcon, 
   Trash2, Shield, Activity, X, 
   Minus, Maximize2, Pencil, BarChart3, Clock, 
-  Lock, Bird, Zap, Terminal, Hourglass, Cpu
+  Lock, Bird, Zap, Terminal, Hourglass, Cpu, GripVertical
 } from 'lucide-react';
 import { 
   format, differenceInSeconds, startOfMonth, endOfMonth, 
@@ -115,6 +115,7 @@ interface AppSettings {
   };
   invoicePath?: string;
   theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean' | 'harry-potter' | 'marvel' | 'loki';
+  widgetOpacity: number;
 }
 
 const DEFAULT_CLIENTS: Client[] = [
@@ -137,7 +138,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   monthlyGoal: 500000,
   arcaInfo: { cuit: '20326691314', puntoVenta: '2', certPath: '', keyPath: '', productionMode: true },
   invoicePath: '',
-  theme: 'cyberpunk'
+  theme: 'cyberpunk',
+  widgetOpacity: 0.2
 };
 
 // --- COMPONENT ---
@@ -949,35 +951,62 @@ const App: React.FC = () => {
       switch(settings.theme) {
         case 'harry-potter':
           return {
-            icon: <Bird size={24} color="var(--accent-color)" />,
-            borderRadius: '20px 20px 5px 5px',
-            border: '2px solid var(--accent-color)',
-            background: 'linear-gradient(135deg, #2a0f0f 0%, #1a0a0a 100%)',
-            label: '🦉 MENSAJERÍA HEDWIG'
+            icon: <Bird size={24} color="#5d4037" />,
+            borderRadius: '12px',
+            border: '8px double #5d4037',
+            background: 'linear-gradient(to bottom, #f3e5ab 0%, #e5d392 100%)',
+            label: '🦉 CARTA DE HOGWARTS',
+            labelColor: '#5d4037',
+            accentColor: '#5d4037',
+            customStyle: {
+              boxShadow: '2px 2px 10px rgba(0,0,0,0.3)',
+              fontFamily: '"Cinzel", serif', // Fallback to serif
+              color: '#5d4037'
+            }
           };
         case 'marvel':
           return {
-            icon: <Zap size={24} color="var(--accent-color)" />,
+            icon: <Zap size={24} color="#0ea5e9" />,
             borderRadius: '0',
-            border: '3px solid var(--accent-color)',
-            background: 'rgba(15, 15, 15, 0.9)',
-            label: '🛡️ AVENGERS PROTOCOL'
+            border: '1px solid #0ea5e9',
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%)',
+            label: '🛡️ PROTOCOLO STARK',
+            labelColor: '#0ea5e9',
+            accentColor: '#0ea5e9',
+            customStyle: {
+              clipPath: 'polygon(0 0, 100% 0, 100% 85%, 90% 100%, 0 100%)', // Angular corner
+              borderLeft: '4px solid #0ea5e9',
+              boxShadow: '0 0 20px rgba(14, 165, 233, 0.3)'
+            }
           };
         case 'loki':
           return {
-            icon: <Hourglass size={24} color="var(--accent-color)" />,
-            borderRadius: '12px',
-            border: '2px solid var(--accent-color)',
-            background: '#1a150f',
-            label: '⏳ TVA TIME-SLOT'
+            icon: <Hourglass size={24} color="#fbbf24" />,
+            borderRadius: '40px',
+            border: '4px solid #b45309',
+            background: 'radial-gradient(circle, #2d1b0d 0%, #1a1008 100%)',
+            label: '⏳ VARIANTE DETECTADA',
+            labelColor: '#fbbf24',
+            accentColor: '#fbbf24',
+            customStyle: {
+              boxShadow: '0 0 20px rgba(251, 191, 36, 0.2)',
+              outline: '2px solid #fbbf24',
+              outlineOffset: '-8px'
+            }
           };
         case 'matrix':
           return {
-            icon: <Terminal size={24} color="var(--accent-color)" />,
+            icon: <Terminal size={24} color="#00ff41" />,
             borderRadius: '0',
-            border: '1px solid var(--accent-color)',
-            background: '#000',
-            label: '> SYSTEM_TRACKER'
+            border: '1px solid #00ff41',
+            background: 'rgba(0,0,0,0.95)',
+            label: '> WHITE_RABBIT.EXE',
+            labelColor: '#00ff41',
+            accentColor: '#00ff41',
+            customStyle: {
+              boxShadow: 'inset 0 0 10px #00ff41, 0 0 15px #00ff41',
+              textShadow: '0 0 5px #00ff41'
+            }
           };
         case 'cyberpunk':
         default:
@@ -986,17 +1015,22 @@ const App: React.FC = () => {
             borderRadius: '4px',
             border: '1px solid var(--accent-color)',
             background: 'rgba(2, 6, 23, 0.9)',
-            label: '⚡ NEURAL_LINK'
+            label: '⚡ ENLACE NEURAL',
+            labelColor: 'var(--accent-color)',
+            accentColor: 'var(--accent-color)',
+            customStyle: {
+              boxShadow: '0 0 20px var(--accent-glow)'
+            }
           };
       }
     };
 
-    const widgetConfig = getThemeWidgetConfig();
+    const widgetConfig = getThemeWidgetConfig() as any;
 
     return (
       <div className="fade-in" style={{ 
-        width: '250px', 
-        height: '110px', // Increased height to fit notes
+        width: '260px', 
+        height: '110px', 
         padding: '0 16px', 
         display: 'flex', 
         alignItems: 'center', 
@@ -1004,53 +1038,58 @@ const App: React.FC = () => {
         border: widgetConfig.border, 
         background: widgetConfig.background, 
         backdropFilter: 'blur(20px)', 
-        boxShadow: `0 0 20px ${settings.theme === 'minimal' ? 'rgba(0,0,0,0.1)' : 'var(--accent-glow)'}`, 
-        color: 'white',
+        color: widgetConfig.labelColor || 'white',
         position: 'relative',
         overflow: 'hidden',
         borderRadius: widgetConfig.borderRadius,
-        transition: 'opacity 0.3s ease-in-out',
-        opacity: 0.2, // Default ghost opacity
-        ...( { onMouseEnter: (e: any) => e.currentTarget.style.opacity = '1', onMouseLeave: (e: any) => e.currentTarget.style.opacity = '0.2' } as any )
+        transition: 'all 0.3s ease-in-out',
+        opacity: settings.widgetOpacity, // User defined opacity
+        ...( { 
+          onMouseEnter: (e: any) => e.currentTarget.style.opacity = '1', 
+          onMouseLeave: (e: any) => e.currentTarget.style.opacity = settings.widgetOpacity.toString() 
+        } as any ),
+        ...widgetConfig.customStyle
       }}>
         {/* Drag handle */}
         <div style={{ 
-          position: 'absolute', top: 0, left: 0, bottom: 0, width: '8px', 
-          background: activeSessionId ? 'var(--accent-color)' : 'rgba(255,255,255,0.1)',
-          cursor: 'move',
+          position: 'absolute', top: 0, left: 0, bottom: 0, width: '24px', 
+          background: activeSessionId ? (widgetConfig.accentColor || 'var(--accent-color)') : 'rgba(255,255,255,0.05)',
+          opacity: 0.8,
+          cursor: 'grab',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          borderRight: `1px solid ${widgetConfig.accentColor || 'rgba(255,255,255,0.1)'}`,
           ...( { WebkitAppRegion: 'drag' } as any )
         }}>
-          <div style={{ width: '2px', height: '20px', background: 'rgba(255,255,255,0.2)', borderRadius: '1px' }}></div>
+          <GripVertical size={14} color={activeSessionId ? 'black' : (widgetConfig.accentColor || 'white')} style={{ opacity: 0.5 }} />
         </div>
 
-        <div style={{ marginLeft: '4px' }}>
+        <div style={{ marginLeft: '20px' }}>
           {widgetConfig.icon}
         </div>
 
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0px' }}>
-          <div className="mono-font" style={{ fontSize: '0.5rem', color: 'var(--accent-color)', letterSpacing: '1px', fontWeight: 800 }}>
+          <div className="mono-font" style={{ fontSize: '0.5rem', color: widgetConfig.accentColor || 'var(--accent-color)', letterSpacing: '1px', fontWeight: 800 }}>
             {widgetConfig.label}
           </div>
           
-          <div className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.5px', color: activeSessionId ? 'white' : 'var(--text-secondary)', marginTop: '-2px' }}>
+          <div className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.5px', color: activeSessionId ? (widgetConfig.labelColor || 'white') : 'rgba(128,128,128,0.5)', marginTop: '-2px' }}>
             {activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"}
           </div>
 
           {/* Quick Note Input */}
           <input 
             type="text" 
-            placeholder="¿Qué estás haciendo?" 
+            placeholder="¿Tarea actual?" 
             value={currentNote}
             onChange={e => setCurrentNote(e.target.value)}
             className="mono-font"
             style={{ 
-              background: 'rgba(255,255,255,0.05)', 
+              background: 'rgba(0,0,0,0.05)', 
               border: 'none', 
-              borderBottom: '1px solid rgba(255,255,255,0.1)', 
-              color: 'var(--accent-color)', 
+              borderBottom: `1px solid ${widgetConfig.accentColor || 'rgba(255,255,255,0.1)'}`, 
+              color: widgetConfig.accentColor || 'var(--accent-color)', 
               fontSize: '0.6rem', 
               width: '100%', 
               padding: '2px 0',
@@ -1067,8 +1106,9 @@ const App: React.FC = () => {
             style={{ 
               width: '36px', height: '36px', padding: 0, justifyContent: 'center',
               background: activeSessionId ? 'var(--danger)' : 'transparent',
-              borderColor: activeSessionId ? 'var(--danger)' : 'var(--accent-color)',
-              boxShadow: activeSessionId ? '0 0 15px var(--danger-glow)' : '0 0 10px var(--accent-glow)'
+              borderColor: activeSessionId ? 'var(--danger)' : (widgetConfig.accentColor || 'var(--accent-color)'),
+              boxShadow: activeSessionId ? '0 0 15px var(--danger-glow)' : `0 0 10px ${widgetConfig.accentColor || 'var(--accent-glow)'}`,
+              color: activeSessionId ? 'white' : (widgetConfig.accentColor || 'var(--accent-color)')
             }}>
             {activeSessionId ? <Square fill="currentColor" size={16} /> : <Play fill="currentColor" size={16} style={{ marginLeft: '2px' }} />}
           </button>
@@ -1076,7 +1116,7 @@ const App: React.FC = () => {
           <button 
             onClick={() => window.electronAPI?.closeWidget()}
             className="btn-secondary"
-            style={{ width: '28px', height: '28px', padding: 0, justifyContent: 'center', background: 'rgba(255,255,255,0.05)', border: 'none' }}>
+            style={{ width: '28px', height: '28px', padding: 0, justifyContent: 'center', background: 'rgba(255,255,255,0.05)', border: 'none', color: widgetConfig.accentColor || 'white' }}>
             <Maximize2 size={14} />
           </button>
         </div>
@@ -1532,13 +1572,12 @@ const App: React.FC = () => {
               <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.9rem', marginBottom: '24px' }}>0. NÚCLEO ESTÉTICO (TEMAS)</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
                 {[
-                  { id: 'cyberpunk', name: 'CYBERPUNK', color: '#0ea5e9', desc: 'Futurista Neón' },
-                  { id: 'matrix', name: 'MATRIX', color: '#00ff41', desc: 'Digital Rain' },
-                  { id: 'minimal', name: 'MINIMAL', color: '#0f172a', desc: 'Limpio y Claro' },
-                  { id: 'deep-ocean', name: 'DEEP OCEAN', color: '#38bdf8', desc: 'Abismo Profundo' },
-                  { id: 'harry-potter', name: 'H. POTTER', color: '#d4af37', desc: 'Mágico y Antiguo' },
-                  { id: 'marvel', name: 'AVENGERS', color: '#ed1d24', desc: 'Héroes y Acero' },
-                  { id: 'loki', name: 'TVA LOKI', color: '#d47522', desc: 'Retro-Futurista' }
+                  { id: 'cyberpunk', name: 'NEURAL LINK', color: '#0ea5e9', desc: 'Futurista Neón' },
+                  { id: 'matrix', name: 'WHITE RABBIT', color: '#00ff41', desc: 'Consola Binaria' },
+                  { id: 'minimal', name: 'PURE GLASS', color: '#ffffff', desc: 'Limpio y Traslúcido' },
+                  { id: 'harry-potter', name: 'HOGWARTS', color: '#d4af37', desc: 'Pergamino Mágico' },
+                  { id: 'marvel', name: 'STARK TECH', color: '#ed1d24', desc: 'Interfaz de Vengador' },
+                  { id: 'loki', name: 'TVA VARIANT', color: '#d47522', desc: 'Retro-Futurismo 70s' }
                 ].map(t => (
                   <div 
                     key={t.id}
@@ -1592,6 +1631,25 @@ const App: React.FC = () => {
                   <span className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>Si la cajita roja (X) minimiza o cierra de verdad la aplicación.</span>
                 </div>
               </label>
+
+              <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--surface-border)' }}>
+                <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                  TRANSPARENCIA "FANTASMA" DEL WIDGET ({Math.round(settings.widgetOpacity * 100)}%)
+                </label>
+                <input 
+                  type="range" 
+                  min="0.05" 
+                  max="1" 
+                  step="0.05" 
+                  value={settings.widgetOpacity} 
+                  onChange={e => updateSetting('widgetOpacity', parseFloat(e.target.value))}
+                  style={{ width: '100%', accentColor: 'var(--accent-color)', cursor: 'pointer' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+                  <span className="mono-font" style={{ fontSize: '0.5rem', color: 'var(--text-secondary)' }}>INVISIBLE</span>
+                  <span className="mono-font" style={{ fontSize: '0.5rem', color: 'var(--text-secondary)' }}>OPACO</span>
+                </div>
+              </div>
             </div>
 
             {/* SECCION 3 */}
