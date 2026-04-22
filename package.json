@@ -1,7 +1,7 @@
 {
   "name": "tracker-de-horas",
   "private": true,
-  "version": "2.3.10",
+  "version": "2.3.11",
   "main": "electron/main.cjs",
   "repository": {
     "type": "git",
@@ -81,7 +81,7 @@
         "nsis",
         "portable"
       ],
-      "icon": "public/lynx_icon.png"
+      "icon": "public/lynx_white_icon.png"
     },
     "nsis": {
       "oneClick": true,
