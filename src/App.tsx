@@ -13,7 +13,7 @@ import {
   isWithinInterval, parseISO 
 } from 'date-fns';
 
-const APP_VERSION = '2.3.13';
+const APP_VERSION = '2.3.14';
 
 // --- TYPES ---
 declare global {
@@ -1200,6 +1200,73 @@ const App: React.FC = () => {
               DESBLOQUEAR
             </button>
           </form>
+        </div>
+      </div>
+    );
+  }
+
+  // --- TOAST VIEW ---
+  if (isToastView) {
+    return (
+      <div className="fade-in" style={{ height: '100vh', padding: '20px', background: 'rgba(15, 23, 42, 0.95)', border: '1px solid var(--accent-color)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div className="mono-font" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--success)', fontSize: '0.7rem', fontWeight: 800 }}>
+             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', boxShadow: '0 0 10px var(--success)' }}></div>
+             SISTEMA LYNX
+          </div>
+          <button onClick={() => window.electronAPI?.closeToast()} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16}/></button>
+        </div>
+
+        {updateStatus === 'downloaded' ? (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <h2 className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '8px', letterSpacing: '1px' }}>ACTUALIZACIÓN LISTA V{appVersion}</h2>
+            <p className="mono-font" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>Una nueva versión ha sido preparada e instalada automáticamente. Reinicia para aplicar.</p>
+            <button 
+              onClick={() => window.electronAPI?.restartApp()} 
+              className="btn-primary" 
+              style={{ width: '100%', padding: '16px', fontWeight: 800, borderColor: 'var(--danger)', color: 'white', background: 'rgba(239, 68, 68, 0.1)' }}>
+              REINICIAR AHORA
+            </button>
+          </div>
+        ) : toastData ? (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <h2 className="mono-font" style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '8px' }}>ZONA DETECTADA</h2>
+            <p className="mono-font" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>Estás en la red de <b>{toastData.name}</b>. ¿Quieres iniciar el cronómetro?</p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                onClick={() => {
+                  window.electronAPI?.toastActionStart(toastData);
+                  window.electronAPI?.closeToast();
+                }}
+                className="btn-primary" style={{ flex: 1, padding: '12px', fontSize: '0.7rem' }}>SÍ, INICIAR</button>
+              <button onClick={() => window.electronAPI?.closeToast()} className="btn-secondary" style={{ flex: 1, padding: '12px', fontSize: '0.7rem' }}>IGNORAR</button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  // --- WIDGET VIEW ---
+  if (isWidgetView) {
+    const activeS = sessions.find(s => s.id === activeSessionId);
+    return (
+      <div className="fade-in" style={{ height: '100vh', display: 'flex', alignItems: 'center', padding: '0 15px', background: `rgba(15, 23, 42, ${settings.widgetOpacity || 0.4})`, backdropFilter: 'blur(10px)', border: '1px solid var(--surface-border)', overflow: 'hidden' }}>
+        <div style={{ flex: 1 }}>
+          <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--accent-color)', opacity: 0.8, marginBottom: '2px' }}>
+            {activeS ? activeS.clientName.substring(0, 20) + '...' : 'EN ESPERA'}
+          </div>
+          <div className="mono-font" style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-1px' }}>
+            {activeS ? formatDuration(differenceInSeconds(now, parseISO(activeS.startTime)) / 3600) : "00:00:00"}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={activeS ? handlePunchOut : handlePunchIn} style={{ background: 'none', border: `1px solid ${activeS ? 'var(--danger)' : 'var(--accent-color)'}`, color: activeS ? 'var(--danger)' : 'var(--accent-color)', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {activeS ? <Square size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+          </button>
+          <button onClick={() => window.electronAPI?.closeWidget()} style={{ background: 'none', border: '1px solid var(--surface-border)', color: 'var(--text-secondary)', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Maximize2 size={14} />
+          </button>
         </div>
       </div>
     );
