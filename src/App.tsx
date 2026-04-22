@@ -13,7 +13,7 @@ import {
   isWithinInterval, parseISO 
 } from 'date-fns';
 
-const APP_VERSION = '2.3.11';
+const APP_VERSION = '2.3.13';
 
 // --- TYPES ---
 declare global {
@@ -54,6 +54,9 @@ declare global {
       toastActionStart: (client: any) => void;
       openWidget: () => void;
       closeWidget: () => void;
+      openBackupsFolder: () => Promise<{ success: boolean }>;
+      deepScanData: () => Promise<any[]>;
+      importDataFromPath: (path: string) => Promise<{ success: boolean; error?: string }>;
     }
   }
 }
