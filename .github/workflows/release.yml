@@ -24,10 +24,14 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build and Publish Electron App
-        run: npm run package -- --publish always
+      - name: Build Web App
+        run: npm run build
+
+      - name: Package and Publish Electron App
+        run: npx electron-builder --publish always
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: List build artifacts (Debugging)
-        run: dir build-output /s
+      - name: List artifacts (on failure)
+        if: failure()
+        run: dir build-output /s || dir dist /s
