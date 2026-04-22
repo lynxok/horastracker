@@ -32,6 +32,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: List artifacts (on failure)
-        if: failure()
-        run: dir build-output /s || dir dist /s
+      - name: Upload Artifacts (Safety Net)
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: build-output/*.exe
