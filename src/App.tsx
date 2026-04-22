@@ -175,6 +175,7 @@ const App: React.FC = () => {
   const [manualNote, setManualNote] = useState('');
   const [toastData, setToastData] = useState<any>(null);
   const [isInvoicing, setIsInvoicing] = useState(false);
+  const [isWidgetHovered, setIsWidgetHovered] = useState(false);
 
   // Modal States
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -1017,7 +1018,7 @@ const App: React.FC = () => {
             accentColor: '#5d4037',
             customStyle: {
               boxShadow: '2px 2px 10px rgba(0,0,0,0.3)',
-              fontFamily: '"Cinzel", serif', // Fallback to serif
+              fontFamily: '"Cinzel", serif', 
               color: '#5d4037'
             }
           };
@@ -1031,7 +1032,7 @@ const App: React.FC = () => {
             labelColor: '#0ea5e9',
             accentColor: '#0ea5e9',
             customStyle: {
-              clipPath: 'polygon(0 0, 100% 0, 100% 85%, 90% 100%, 0 100%)', // Angular corner
+              clipPath: 'polygon(0 0, 100% 0, 100% 85%, 90% 100%, 0 100%)', 
               borderLeft: '4px solid #0ea5e9',
               boxShadow: '0 0 20px rgba(14, 165, 233, 0.3)'
             }
@@ -1040,13 +1041,13 @@ const App: React.FC = () => {
           return {
             icon: <Hourglass size={24} color="#fbbf24" />,
             borderRadius: '40px',
-            border: '4px solid #b45309',
+            border: '4px double #b45309',
             background: 'radial-gradient(circle, #2d1b0d 0%, #1a1008 100%)',
-            label: '⏳ VARIANTE DETECTADA',
+            label: isWidgetHovered && activeSessionId ? '💰 GANANCIA ACTUAL' : '⏳ VARIANTE DETECTADA',
             labelColor: '#fbbf24',
             accentColor: '#fbbf24',
             customStyle: {
-              boxShadow: '0 0 20px rgba(251, 191, 36, 0.2)',
+              boxShadow: '0 0 25px rgba(251, 191, 36, 0.25)',
               outline: '2px solid #fbbf24',
               outlineOffset: '-8px'
             }
@@ -1057,7 +1058,7 @@ const App: React.FC = () => {
             borderRadius: '0',
             border: '1px solid #00ff41',
             background: 'rgba(0,0,0,0.95)',
-            label: '> WHITE_RABBIT.EXE',
+            label: isWidgetHovered && activeSessionId ? '> CALCULATING_PAYMENT...' : '> WHITE_RABBIT.EXE',
             labelColor: '#00ff41',
             accentColor: '#00ff41',
             customStyle: {
@@ -1072,7 +1073,7 @@ const App: React.FC = () => {
             borderRadius: '4px',
             border: '1px solid var(--accent-color)',
             background: 'rgba(2, 6, 23, 0.9)',
-            label: '⚡ ENLACE NEURAL',
+            label: isWidgetHovered && activeSessionId ? '💰 CRÉDITOS ACUMULADOS' : '⚡ ENLACE NEURAL',
             labelColor: 'var(--accent-color)',
             accentColor: 'var(--accent-color)',
             customStyle: {
@@ -1083,30 +1084,32 @@ const App: React.FC = () => {
     };
 
     const widgetConfig = getThemeWidgetConfig() as any;
+    const activeS = sessions.find(s => s.id === activeSessionId);
+    const earnings = activeS ? (differenceInSeconds(now, parseISO(activeS.startTime)) / 3600) * activeS.rate : 0;
 
     return (
-      <div className="fade-in" style={{ 
-        width: '100vw', 
-        height: '100vh', 
-        padding: '0 16px', 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: '12px', 
-        border: widgetConfig.border, 
-        background: widgetConfig.background, 
-        backdropFilter: 'blur(20px)', 
-        color: widgetConfig.labelColor || 'white',
-        position: 'relative',
-        overflow: 'hidden',
-        borderRadius: widgetConfig.borderRadius,
-        transition: 'all 0.3s ease-in-out',
-        opacity: settings.widgetOpacity, // User defined opacity
-        ...( { 
-          onMouseEnter: (e: any) => e.currentTarget.style.opacity = '1', 
-          onMouseLeave: (e: any) => e.currentTarget.style.opacity = settings.widgetOpacity.toString() 
-        } as any ),
-        ...widgetConfig.customStyle
-      }}>
+      <div 
+        className="fade-in widget-container" 
+        onMouseEnter={() => setIsWidgetHovered(true)}
+        onMouseLeave={() => setIsWidgetHovered(false)}
+        style={{ 
+          width: '100vw', 
+          height: '100vh', 
+          padding: '0 16px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '12px', 
+          border: widgetConfig.border, 
+          background: widgetConfig.background, 
+          backdropFilter: 'blur(20px)', 
+          color: widgetConfig.labelColor || 'white',
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: widgetConfig.borderRadius,
+          transition: 'all 0.4s ease-in-out',
+          opacity: isWidgetHovered ? 1 : (settings.widgetOpacity || 0.4),
+          ...widgetConfig.customStyle
+        }}>
         {/* Drag handle */}
         <div style={{ 
           position: 'absolute', top: 0, left: 0, bottom: 0, width: '24px', 
@@ -1122,7 +1125,7 @@ const App: React.FC = () => {
           <GripVertical size={14} color={activeSessionId ? 'black' : (widgetConfig.accentColor || 'white')} style={{ opacity: 0.5 }} />
         </div>
 
-        <div style={{ marginLeft: '20px' }}>
+        <div style={{ marginLeft: '20px' }} className={activeSessionId ? 'active-pulse' : ''}>
           {widgetConfig.icon}
         </div>
 
@@ -1132,7 +1135,11 @@ const App: React.FC = () => {
           </div>
           
           <div className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.5px', color: activeSessionId ? (widgetConfig.labelColor || 'white') : 'rgba(128,128,128,0.5)', marginTop: '-2px' }}>
-            {activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"}
+            {isWidgetHovered && activeSessionId ? (
+              <span style={{ color: 'var(--success)' }}>${Math.floor(earnings).toLocaleString()}</span>
+            ) : (
+              activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"
+            )}
           </div>
 
           {/* Quick Note Input */}
