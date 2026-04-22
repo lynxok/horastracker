@@ -1047,11 +1047,13 @@ ipcMain.handle('arca-generate-credit-note', async (event, { settings, invoice, c
 // --- BACKGROUND ZONE MONITORING & TOAST NOTIFICATIONS ---
 
 let monitoringClients = [];
+let activeClientId = null;
 let lastMonitoredIp = null;
 let toastWindow = null;
 
-ipcMain.on('sync-monitoring-data', (event, { clients }) => {
+ipcMain.on('sync-monitoring-data', (event, { clients, activeClientId: activeId }) => {
   monitoringClients = clients || [];
+  activeClientId = activeId;
 });
 
 function createToastWindow(client) {
@@ -1127,6 +1129,12 @@ setInterval(async () => {
       // If we found a match and it's a NEW detection (or reset)
       if (matchingClient && res.ip !== lastMonitoredIp) {
         lastMonitoredIp = res.ip;
+        
+        // Skip notification if the detected client is already the active one
+        if (activeClientId === matchingClient.id) {
+          return;
+        }
+
         // Only show toast if main window is NOT active/focused
         if (!mainWindow || !mainWindow.isVisible() || mainWindow.isMinimized()) {
           createToastWindow(matchingClient);

@@ -296,7 +296,11 @@ const App: React.FC = () => {
     // We still listen for detections from main
     if (window.electronAPI) {
       window.electronAPI?.onStartSessionFromToast((client: any) => {
-        // Find the full client object just in case
+        if (!isLoaded) return;
+        // Don't prompt or start if already running for this client
+        const activeS = sessions.find(s => s.id === activeSessionId);
+        if (activeS && activeS.clientId === client.id) return;
+
         const fullClient = settings.clients.find(c => c.id === client.id) || client;
         startSession(fullClient);
       });
@@ -398,15 +402,24 @@ const App: React.FC = () => {
     }
   }, [sessions, activeSessionId, settings.clients]);
 
+  // Sync monitoring and tray data whenever clients or active session change
   useEffect(() => {
-    if (window.electronAPI) {
-      window.electronAPI?.syncTrayData({
+    if (isLoaded && window.electronAPI) {
+      const activeS = sessions.find(s => s.id === activeSessionId);
+      
+      // Sync IP Monitoring
+      window.electronAPI.syncMonitoringData({ 
         clients: settings.clients,
-        activeSession: activeSessionId ? sessions.find(s => s.id === activeSessionId) : null
+        activeClientId: activeS ? activeS.clientId : null
+      });
+
+      // Sync Tray Menu Clients
+      window.electronAPI.syncTrayData({
+        clients: settings.clients,
+        activeSession: activeS || null
       });
     }
-  }, [settings.clients, activeSessionId, sessions]);
-
+  }, [isLoaded, settings.clients, activeSessionId, sessions]);
 
   // Tick & Tray Sync
   useEffect(() => {
@@ -534,12 +547,13 @@ const App: React.FC = () => {
       clientName: client.name,
       note: currentNote
     };
-    setSessions([...sessions, newS]);
+    setSessions(prev => [...prev, newS]);
     setActiveSessionId(newS.id);
     playThematicSound('start');
   };
 
   const handlePunchIn = () => {
+    if (!isLoaded) return; // Critical safety check
     const activeClient = settings.clients.find(c => c.id === settings.selectedClientId) || settings.clients[0];
     const newS: WorkSession = {
       id: crypto.randomUUID(),
@@ -549,7 +563,7 @@ const App: React.FC = () => {
       clientName: activeClient.name,
       note: currentNote
     };
-    setSessions([...sessions, newS]);
+    setSessions(prev => [...prev, newS]);
     setActiveSessionId(newS.id);
     playThematicSound('start');
   };
@@ -2068,7 +2082,7 @@ const App: React.FC = () => {
           </div>
         )}
         {/* ZONE DETECTION PROMPT */}
-        {activeZoneClient && !activeSessionId && (
+        {isLoaded && activeZoneClient && !activeSessionId && (
           <div className="zone-prompt premium-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
               <div className="mono-font" style={{ color: 'var(--accent-color)', fontWeight: 800, fontSize: '0.8rem' }}>DETECCIÓN DE ZONA</div>
