@@ -13,7 +13,7 @@ import {
   isWithinInterval, parseISO 
 } from 'date-fns';
 
-const APP_VERSION = '2.3.15';
+const APP_VERSION = '2.3.16';
 
 // --- TYPES ---
 declare global {
@@ -1066,6 +1066,20 @@ const App: React.FC = () => {
               textShadow: '0 0 5px #00ff41'
             }
           };
+        case 'winamp':
+          return {
+            icon: <Activity size={24} color="#00ff00" />,
+            borderRadius: '0',
+            border: '2px solid #555',
+            background: 'linear-gradient(to bottom, #3a3a3a 0%, #1a1a1a 100%)',
+            label: isWidgetHovered && activeSessionId ? 'TOTAL PAYOUT' : 'WINAMP 2.91',
+            labelColor: '#00ff00',
+            accentColor: '#00ff00',
+            customStyle: {
+              boxShadow: 'inset 2px 2px 0 #888, inset -2px -2px 0 #000',
+              fontFamily: '"JetBrains Mono", monospace'
+            }
+          };
         case 'cyberpunk':
         default:
           return {
@@ -1127,6 +1141,13 @@ const App: React.FC = () => {
 
         <div style={{ marginLeft: '20px' }} className={activeSessionId ? 'active-pulse' : ''}>
           {widgetConfig.icon}
+          {settings.theme === 'winamp' && activeSessionId && (
+            <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '14px', marginTop: '4px', opacity: 0.8 }}>
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="winamp-bar" style={{ width: '3px', background: '#00ff00', animationDelay: `${i * 0.15}s` }} />
+              ))}
+            </div>
+          )}
         </div>
 
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0px' }}>
@@ -1684,7 +1705,8 @@ const App: React.FC = () => {
                   { id: 'minimal', name: 'PURE GLASS', color: '#ffffff', desc: 'Limpio y Traslúcido' },
                   { id: 'harry-potter', name: 'HOGWARTS', color: '#d4af37', desc: 'Pergamino Mágico' },
                   { id: 'marvel', name: 'STARK TECH', color: '#ed1d24', desc: 'Interfaz de Vengador' },
-                  { id: 'loki', name: 'TVA VARIANT', color: '#d47522', desc: 'Retro-Futurismo 70s' }
+                  { id: 'loki', name: 'TVA VARIANT', color: '#d47522', desc: 'Retro-Futurismo 70s' },
+                  { id: 'winamp', name: 'WINAMP CLASSIC', color: '#00ff00', desc: 'Retro Media Player' }
                 ].map(t => (
                   <div 
                     key={t.id}
