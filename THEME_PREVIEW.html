@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horas Tracker - Premium Theme Preview</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        /* THEME DEFINITIONS */
+        :root[data-theme='cyberpunk'] {
+            --bg-color: #020617;
+            --surface-color: rgba(15, 23, 42, 0.5);
+            --surface-border: rgba(14, 165, 233, 0.25);
+            --accent-color: #0ea5e9;
+            --accent-glow: rgba(14, 165, 233, 0.4);
+            --accent-secondary: #f472b6;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --shadow-md: 0 8px 24px rgba(14, 165, 233, 0.1);
+        }
+
+        :root[data-theme='matrix'] {
+            --bg-color: #000000;
+            --surface-color: rgba(0, 30, 0, 0.5);
+            --surface-border: rgba(0, 255, 70, 0.3);
+            --accent-color: #00ff41;
+            --accent-glow: rgba(0, 255, 65, 0.4);
+            --accent-secondary: #00cc33;
+            --text-primary: #d0ffd0;
+            --text-secondary: #00cc33;
+            --shadow-md: 0 8px 24px rgba(0, 255, 65, 0.1);
+        }
+
+        :root[data-theme='minimal'] {
+            --bg-color: #fafbfc;
+            --surface-color: rgba(255, 255, 255, 0.9);
+            --surface-border: rgba(0, 0, 0, 0.08);
+            --accent-color: #0f172a;
+            --accent-glow: rgba(15, 23, 42, 0.1);
+            --accent-secondary: #06b6d4;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        :root[data-theme='deep-ocean'] {
+            --bg-color: #0a1929;
+            --surface-color: rgba(30, 41, 59, 0.7);
+            --surface-border: rgba(56, 189, 248, 0.3);
+            --accent-color: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.5);
+            --accent-secondary: #06b6d4;
+            --text-primary: #f0f9ff;
+            --text-secondary: #7dd3fc;
+            --shadow-md: 0 8px 24px rgba(56, 189, 248, 0.1);
+        }
+
+        :root[data-theme='harry-potter'] {
+            --bg-color: #1a0a0a;
+            --surface-color: rgba(42, 15, 15, 0.7);
+            --surface-border: rgba(212, 175, 55, 0.4);
+            --accent-color: #d4af37;
+            --accent-glow: rgba(212, 175, 55, 0.5);
+            --accent-secondary: #740001;
+            --text-primary: #f3e5ab;
+            --text-secondary: #c5a059;
+            --shadow-md: 0 8px 24px rgba(212, 175, 55, 0.1);
+        }
+
+        :root[data-theme='marvel'] {
+            --bg-color: #0f0f0f;
+            --surface-color: rgba(237, 29, 36, 0.08);
+            --surface-border: rgba(237, 29, 36, 0.5);
+            --accent-color: #ed1d24;
+            --accent-glow: rgba(237, 29, 36, 0.6);
+            --accent-secondary: #ffc72c;
+            --text-primary: #ffffff;
+            --text-secondary: #c0c0c0;
+            --shadow-md: 0 8px 24px rgba(237, 29, 36, 0.15);
+        }
+
+        :root[data-theme='loki'] {
+            --bg-color: #1a150f;
+            --surface-color: rgba(212, 117, 34, 0.1);
+            --surface-border: rgba(212, 117, 34, 0.5);
+            --accent-color: #d47522;
+            --accent-glow: rgba(212, 117, 34, 0.6);
+            --accent-secondary: #5a7d6c;
+            --text-primary: #e6d5b8;
+            --text-secondary: #8b7d6b;
+            --shadow-md: 0 8px 24px rgba(212, 117, 34, 0.1);
+        }
+
+        :root[data-theme='winamp'] {
+            --bg-color: #1a1a1a;
+            --surface-color: rgba(40, 40, 40, 0.9);
+            --surface-border: rgba(128, 128, 128, 0.4);
+            --accent-color: #00dd00;
+            --accent-glow: rgba(0, 221, 0, 0.4);
+            --accent-secondary: #008800;
+            --text-primary: #00dd00;
+            --text-secondary: #00aa00;
+            --shadow-md: 0 8px 24px rgba(0, 221, 0, 0.1);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+        }
+
+        /* HEADER */
+        header {
+            padding: 40px 20px;
+            text-align: center;
+            border-bottom: 1px solid var(--surface-border);
+            background: var(--surface-color);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--accent-color), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1em;
+        }
+
+        /* THEME SELECTOR */
+        .theme-selector-container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .theme-selector-title {
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 1.8em;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .theme-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .theme-card {
+            background: var(--surface-color);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 2px solid var(--surface-border);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .theme-card:hover {
+            border-color: var(--accent-color);
+            box-shadow: var(--shadow-md), 0 0 20px var(--accent-glow);
+            transform: translateY(-5px);
+        }
+
+        .theme-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .theme-name {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--accent-color);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .theme-description {
+            color: var(--text-secondary);
+            font-size: 0.95em;
+            margin-bottom: 20px;
+        }
+
+        .color-preview {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .color-box {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px var(--accent-glow);
+            transition: transform 0.3s ease;
+        }
+
+        .theme-card:hover .color-box {
+            transform: scale(1.1);
+        }
+
+        .btn-select {
+            background: linear-gradient(135deg, var(--accent-color), var(--accent-secondary));
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .btn-select:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 25px var(--accent-glow);
+        }
+
+        .btn-select:active {
+            transform: translateY(0);
+        }
+
+        /* PREVIEW SECTION */
+        .preview-section {
+            max-width: 1200px;
+            margin: 60px auto;
+            padding: 40px;
+            background: var(--surface-color);
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            backdrop-filter: blur(20px);
+        }
+
+        .preview-title {
+            font-size: 1.5em;
+            margin-bottom: 30px;
+            color: var(--accent-color);
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .components-demo {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+
+        .demo-component {
+            padding: 20px;
+            border: 1px solid var(--surface-border);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .demo-label {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* INFO SECTION */
+        .info-section {
+            max-width: 1200px;
+            margin: 60px auto;
+            padding: 40px 20px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .info-card {
+            background: var(--surface-color);
+            border: 1px solid var(--surface-border);
+            border-radius: 8px;
+            padding: 20px;
+            backdrop-filter: blur(20px);
+        }
+
+        .info-card h3 {
+            color: var(--accent-color);
+            margin-bottom: 10px;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .info-card p {
+            color: var(--text-secondary);
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+
+        /* FOOTER */
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            border-top: 1px solid var(--surface-border);
+            color: var(--text-secondary);
+            margin-top: 60px;
+        }
+
+        /* ANIMATIONS */
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 15px var(--accent-glow); }
+            50% { box-shadow: 0 0 30px var(--accent-glow); }
+        }
+
+        .glow-animation {
+            animation: glow 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body data-theme="cyberpunk">
+
+<header>
+    <h1>🎨 Horas Tracker Premium</h1>
+    <p class="subtitle">Sistema de Temas Dinámico Estilo Winamp</p>
+</header>
+
+<div class="theme-selector-container">
+    <h2 class="theme-selector-title">Selecciona Tu Tema</h2>
+    <div class="theme-grid" id="themeGrid"></div>
+</div>
+
+<div class="preview-section">
+    <h2 class="preview-title">Vista Previa del Tema Actual</h2>
+    <div class="components-demo">
+        <div class="demo-component">
+            <p class="demo-label">Botón Premium</p>
+            <button class="btn-select" style="width: 100%;">Click Me</button>
+        </div>
+        <div class="demo-component">
+            <p class="demo-label">Texto Gradiente</p>
+            <div style="
+                background: linear-gradient(135deg, var(--accent-color), var(--accent-secondary));
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                font-size: 1.5em;
+                font-weight: 700;
+                font-family: 'Orbitron', sans-serif;
+            ">GRADIENT TEXT</div>
+        </div>
+    </div>
+</div>
+
+<div class="info-section">
+    <h2 class="theme-selector-title">ℹ️ Información</h2>
+    <div class="info-grid">
+        <div class="info-card">
+            <h3>🎯 8 Temas Disponibles</h3>
+            <p>Cada tema tiene su propia paleta de colores, animaciones y efectos visuales únicos.</p>
+        </div>
+        <div class="info-card">
+            <h3>⚡ Animaciones Fluidas</h3>
+            <p>Transiciones suaves, glows dinámicos y microinteracciones en cada elemento.</p>
+        </div>
+        <div class="info-card">
+            <h3>🎨 Glassmorphism</h3>
+            <p>Diseño moderno con backdrop blur, bordes translúcidos y sombras multicapa.</p>
+        </div>
+        <div class="info-card">
+            <h3>🎭 Winamp Style</h3>
+            <p>Selector visual de temas como los clásicos skins de Winamp. ¡Cambia al instante!</p>
+        </div>
+        <div class="info-card">
+            <h3>💫 CSS Premium</h3>
+            <p>Variables CSS avanzadas para máxima flexibilidad y consistencia visual.</p>
+        </div>
+        <div class="info-card">
+            <h3>📱 Responsive Design</h3>
+            <p>Perfectamente adaptado a desktop, tablet y dispositivos móviles.</p>
+        </div>
+    </div>
+</div>
+
+<footer>
+    <p>Horas Tracker Premium Edition • Rediseño Profesional • 2026</p>
+    <p style="margin-top: 20px; color: var(--text-tertiary); font-size: 0.9em;">
+        Basado en CSS Variables • Sin JavaScript pesado • Optimizado para Electron
+    </p>
+</footer>
+
+<script>
+const THEMES = [
+    {
+        id: 'cyberpunk',
+        name: 'Cyberpunk',
+        icon: '⚡',
+        description: 'Neon and electric vibes',
+        colors: ['#0ea5e9', '#f472b6', '#06b6d4']
+    },
+    {
+        id: 'matrix',
+        name: 'Matrix',
+        icon: '🟢',
+        description: 'Green screen retro',
+        colors: ['#00ff41', '#00cc33', '#008f11']
+    },
+    {
+        id: 'minimal',
+        name: 'Minimal',
+        icon: '◻️',
+        description: 'Clean and simple',
+        colors: ['#0f172a', '#06b6d4', '#3b82f6']
+    },
+    {
+        id: 'deep-ocean',
+        name: 'Deep Ocean',
+        icon: '🌊',
+        description: 'Underwater serenity',
+        colors: ['#38bdf8', '#06b6d4', '#818cf8']
+    },
+    {
+        id: 'harry-potter',
+        name: 'Harry Potter',
+        icon: '✨',
+        description: 'Magical gold theme',
+        colors: ['#d4af37', '#740001', '#eab308']
+    },
+    {
+        id: 'marvel',
+        name: 'Marvel',
+        icon: '🔴',
+        description: 'Power and action',
+        colors: ['#ed1d24', '#ffc72c', '#ff6b35']
+    },
+    {
+        id: 'loki',
+        name: 'Loki',
+        icon: '🎭',
+        description: 'TVA aesthetic',
+        colors: ['#d47522', '#5a7d6c', '#8b6f47']
+    },
+    {
+        id: 'winamp',
+        name: 'Winamp',
+        icon: '🎵',
+        description: 'Retro player classic',
+        colors: ['#00dd00', '#008800', '#00aa00']
+    }
+];
+
+function renderThemes() {
+    const grid = document.getElementById('themeGrid');
+    grid.innerHTML = THEMES.map(theme => `
+        <div class="theme-card" onclick="changeTheme('${theme.id}')">
+            <div class="theme-icon">${theme.icon}</div>
+            <div class="theme-name">${theme.name}</div>
+            <p class="theme-description">${theme.description}</p>
+            <div class="color-preview">
+                ${theme.colors.map(color => `
+                    <div class="color-box" style="background: ${color}; box-shadow: 0 0 15px ${color}40;"></div>
+                `).join('')}
+            </div>
+            <button class="btn-select">Seleccionar</button>
+        </div>
+    `).join('');
+}
+
+function changeTheme(themeName) {
+    document.documentElement.setAttribute('data-theme', themeName);
+    localStorage.setItem('selectedTheme', themeName);
+
+    // Efecto visual
+    const cards = document.querySelectorAll('.theme-card');
+    cards.forEach(card => {
+        if (card.onclick.toString().includes(`'${themeName}'`)) {
+            card.classList.add('glow-animation');
+            setTimeout(() => card.classList.remove('glow-animation'), 2000);
+        }
+    });
+}
+
+// Load saved theme or default
+const savedTheme = localStorage.getItem('selectedTheme') || 'cyberpunk';
+document.documentElement.setAttribute('data-theme', savedTheme);
+
+renderThemes();
+</script>
+
+</body>
+</html>

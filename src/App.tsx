@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import lynxIconUrl from './assets/lynx_icon.png';
 import lynxLogoUrl from './assets/lynx_logo.png';
-import { 
-  Play, Square, History, Settings as SettingsIcon, 
-  Trash2, Shield, Activity, X, 
-  Minus, Maximize2, Pencil, BarChart3, Clock, 
+import {
+  Play, Square, History, Settings as SettingsIcon,
+  Trash2, Shield, Activity, X,
+  Minus, Maximize2, Pencil, BarChart3, Clock,
   Lock, Bird, Zap, Terminal, Hourglass, Cpu, GripVertical, Database, Search
 } from 'lucide-react';
-import { 
-  format, differenceInSeconds, startOfMonth, endOfMonth, 
-  startOfWeek, endOfWeek, startOfDay, endOfDay, 
-  isWithinInterval, parseISO 
+import {
+  format, differenceInSeconds, startOfMonth, endOfMonth,
+  startOfWeek, endOfWeek, startOfDay, endOfDay,
+  isWithinInterval, parseISO
 } from 'date-fns';
+import { ThemeSelector, ThemeSelectorCompact } from './components/ThemeSelector';
 
 const APP_VERSION = '2.3.17';
 
@@ -145,7 +146,13 @@ const DEFAULT_SETTINGS: AppSettings = {
   widgetOpacity: 0.2
 };
 
-// --- COMPONENT ---
+import { useThematicSounds } from './hooks/useThematicSounds';
+import { formatDuration, formatCurrency, formatDate, formatTime } from './utils/formatters';
+import { InvoicingModal } from './components/modals/InvoicingModal';
+import { ClientModal } from './components/modals/ClientModal';
+import { ManualEntryModal } from './components/modals/ManualEntryModal';
+
+// --- CONFIGURACIÓN DE TIPOS ---
 const App: React.FC = () => {
   // Data State
   const [sessions, setSessions] = useState<WorkSession[]>([]);
@@ -154,8 +161,23 @@ const App: React.FC = () => {
   
   // App Infrastructure State
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isUnlocked, setIsUnlocked] = useState(true);
+  const [isUnlocked, setIsUnlocked] = useState(false);
   const [lockInput, setLockInput] = useState('');
+  
+  const { playThematicSound } = useThematicSounds();
+
+  const isWidgetView = window.location.search.includes('view=widget');
+  const isToastView = window.location.search.includes('view=toast');
+
+  // Fix for widget background transparency
+  useEffect(() => {
+    if (isWidgetView || isToastView) {
+      document.body.classList.add('is-widget');
+    } else {
+      document.body.classList.remove('is-widget');
+    }
+  }, [isWidgetView, isToastView]);
+
   const [activeTab, setActiveTab] = useState<'tracker' | 'dashboard' | 'history' | 'settings'>('tracker');
   const [dataPath, setDataPath] = useState<string>('');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -1695,37 +1717,13 @@ const App: React.FC = () => {
               <SettingsIcon size={24} /> PANEL DE CONTROL MAESTRO
             </h2>
 
-            {/* SECCION 0 - TEMAS */}
-            <div className="premium-card" style={{ borderLeft: '4px solid var(--accent-color)' }}>
-              <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.9rem', marginBottom: '24px' }}>0. NÚCLEO ESTÉTICO (TEMAS)</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-                {[
-                  { id: 'cyberpunk', name: 'NEURAL LINK', color: '#0ea5e9', desc: 'Futurista Neón' },
-                  { id: 'matrix', name: 'WHITE RABBIT', color: '#00ff41', desc: 'Consola Binaria' },
-                  { id: 'minimal', name: 'PURE GLASS', color: '#ffffff', desc: 'Limpio y Traslúcido' },
-                  { id: 'harry-potter', name: 'HOGWARTS', color: '#d4af37', desc: 'Pergamino Mágico' },
-                  { id: 'marvel', name: 'STARK TECH', color: '#ed1d24', desc: 'Interfaz de Vengador' },
-                  { id: 'loki', name: 'TVA VARIANT', color: '#d47522', desc: 'Retro-Futurismo 70s' },
-                  { id: 'winamp', name: 'WINAMP CLASSIC', color: '#00ff00', desc: 'Retro Media Player' }
-                ].map(t => (
-                  <div 
-                    key={t.id}
-                    onClick={() => updateSetting('theme', t.id)}
-                    style={{ 
-                      padding: '16px', 
-                      background: settings.theme === t.id ? 'rgba(255,255,255,0.05)' : 'transparent',
-                      border: `1px solid ${settings.theme === t.id ? 'var(--accent-color)' : 'var(--surface-border)'}`,
-                      cursor: 'pointer',
-                      transition: 'all 0.3s',
-                      textAlign: 'center'
-                    }}>
-                    <div style={{ width: '24px', height: '24px', background: t.color, margin: '0 auto 12px', borderRadius: '4px', boxShadow: `0 0 10px ${t.color}` }}></div>
-                    <div className="mono-font" style={{ fontSize: '0.7rem', fontWeight: 800, color: settings.theme === t.id ? 'var(--accent-color)' : 'white' }}>{t.name}</div>
-                    <div className="mono-font" style={{ fontSize: '0.5rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{t.desc}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* SECCION 0 - TEMAS PREMIUM */}
+            <ThemeSelector
+              currentTheme={settings.theme || 'cyberpunk'}
+              onThemeChange={(newTheme) => {
+                updateSetting('theme', newTheme);
+              }}
+            />
 
 
 
@@ -2099,67 +2097,19 @@ const App: React.FC = () => {
 
         {/* CLIENT MODAL */}
         {showClientModal && (
-          <div className="modal-overlay">
-             <div className="premium-card" style={{ width: '100%', maxWidth: '500px' }}>
-                <h2 className="mono-font" style={{ fontSize: '1rem', color: 'var(--accent-color)', marginBottom: '32px' }}>
-                  {editClientId ? 'EDITAR CLIENTE' : 'NUEVO CLIENTE'}
-                </h2>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                   <div>
-                      <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>RAZÓN SOCIAL / NOMBRE</label>
-                      <input type="text" value={tempClient.name} onChange={e => setTempClient({...tempClient, name: e.target.value})}
-                        style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
-                   </div>
-                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div>
-                        <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>CUIT</label>
-                        <input type="text" value={tempClient.cuit} onChange={e => setTempClient({...tempClient, cuit: e.target.value})}
-                          style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
-                      </div>
-                      <div>
-                        <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>VALOR HORA ($)</label>
-                        <input type="number" value={tempClient.hourlyRate} onChange={e => setTempClient({...tempClient, hourlyRate: Number(e.target.value)})}
-                          style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
-                      </div>
-                   </div>
-                   <div>
-                      <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>DOMICILIO</label>
-                      <input type="text" value={tempClient.domicilio} onChange={e => setTempClient({...tempClient, domicilio: e.target.value})}
-                        style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
-                   </div>
-                   <div>
-                      <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>CONDICIÓN IVA</label>
-                      <select value={tempClient.condicionIva} onChange={e => setTempClient({...tempClient, condicionIva: e.target.value})}
-                        style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }}>
-                        <option>IVA Responsable Inscripto</option>
-                        <option>IVA Sujeto Exento</option>
-                        <option>Consumidor Final</option>
-                        <option>Responsable Monotributo</option>
-                      </select>
-                   </div>
-                   <div>
-                      <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>IP PÚBLICA DE ZONA DE TRABAJO</label>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input type="text" value={tempClient.workIp || ''} onChange={e => setTempClient({...tempClient, workIp: e.target.value})} placeholder="Ej: 190.11.23.44"
-                          style={{ flex: 1, background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'var(--accent-color)', fontFamily: 'monospace' }} />
-                        <button 
-                          onClick={async () => {
-                            const res = await window.electronAPI?.getPublicIp();
-                            if (res?.success) setTempClient({...tempClient, workIp: res.ip});
-                          }}
-                          className="btn-secondary" style={{ fontSize: '0.7rem', padding: '0 12px' }}>DETECTAR MI IP</button>
-                      </div>
-                   </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '16px', marginTop: '40px' }}>
-                   <button onClick={saveClient} className="btn-primary" style={{ flex: 1 }}>GUARDAR</button>
-                   <button onClick={() => setShowClientModal(false)} className="btn-secondary" style={{ flex: 1 }}>CANCELAR</button>
-                </div>
-             </div>
-          </div>
+          <ClientModal
+            editClientId={editClientId}
+            tempClient={tempClient}
+            setTempClient={setTempClient}
+            onSave={saveClient}
+            onClose={() => setShowClientModal(false)}
+            onDetectIp={async () => {
+              const res = await window.electronAPI?.getPublicIp();
+              if (res?.success) setTempClient({...tempClient, workIp: res.ip});
+            }}
+          />
         )}
+
         {/* ZONE DETECTION PROMPT */}
         {isLoaded && activeZoneClient && !activeSessionId && (
           <div className="zone-prompt premium-card">
@@ -2198,60 +2148,16 @@ const App: React.FC = () => {
 
       {/* MODAL DE FACTURACIÓN POR LOTES */}
       {showInvoicingModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(30px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000 }}>
-          <div className="premium-card fade-in" style={{ width: '100%', maxWidth: '800px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', border: '1px solid var(--accent-color)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h2 className="mono-font" style={{ fontSize: '1.2rem' }}>[ FACTURACIÓN DE SESIONES PENDIENTES ]</h2>
-              <button onClick={() => setShowInvoicingModal(false)} className="btn-secondary" style={{ border: 'none' }}><X size={20}/></button>
-            </div>
-            
-            <div style={{ flex: 1, overflowY: 'auto', marginBottom: '24px', background: 'rgba(255,255,255,0.02)', padding: '10px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textAlign: 'left', borderBottom: '1px solid var(--surface-border)' }}>
-                  <tr>
-                    <th style={{ padding: '10px' }}>SEL</th>
-                    <th>FECHA</th>
-                    <th>DURACIÓN</th>
-                    <th style={{ textAlign: 'right', paddingRight: '10px' }}>MONTO</th>
-                  </tr>
-                </thead>
-                <tbody className="mono-font" style={{ fontSize: '0.8rem' }}>
-                  {sessions.filter(s => s.endTime && !s.invoiced).sort((a,b) => b.startTime.localeCompare(a.startTime)).map(s => {
-                    const hrs = differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600;
-                    return (
-                      <tr key={s.id} onClick={() => handleToggleSession(s.id)} style={{ cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', background: selectedSessions.has(s.id) ? 'rgba(14, 165, 233, 0.1)' : 'transparent' }}>
-                        <td style={{ padding: '12px 10px' }}><input type="checkbox" checked={selectedSessions.has(s.id)} readOnly style={{ accentColor: 'var(--accent-color)' }} /></td>
-                        <td>{format(parseISO(s.startTime), 'dd/MM/yyyy')}</td>
-                        <td>{hrs.toFixed(1)} hs</td>
-                        <td style={{ textAlign: 'right', paddingRight: '10px', color: 'var(--success)' }}>${Math.floor(hrs * s.rate).toLocaleString()}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {sessions.filter(s => s.endTime && !s.invoiced).length === 0 && (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>No hay sesiones pendientes de facturación.</div>
-              )}
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--surface-border)', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-               <div>
-                  <div className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>TOTAL A FACTURAR</div>
-                  <div className="mono-font" style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--success)' }}>
-                    ${Math.floor(sessions.filter(s => selectedSessions.has(s.id)).reduce((acc, s) => acc + (differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600) * s.rate, 0)).toLocaleString()}
-                  </div>
-               </div>
-               <button 
-                onClick={handleGenerateInvoice} 
-                disabled={isInvoicing || selectedSessions.size === 0}
-                className="btn-primary" 
-                style={{ height: '60px', padding: '0 40px', fontSize: '1rem' }}>
-                 {isInvoicing ? 'EMITIENDO...' : 'EMITIR RECIBO C'}
-               </button>
-            </div>
-          </div>
-        </div>
+        <InvoicingModal
+          sessions={sessions}
+          selectedSessions={selectedSessions}
+          onToggleSession={handleToggleSession}
+          onGenerate={handleGenerateInvoice}
+          onClose={() => setShowInvoicingModal(false)}
+          isInvoicing={isInvoicing}
+        />
       )}
+
 
       {/* MODAL CARGA MANUAL */}
       {showManualEntry && (
@@ -2289,30 +2195,13 @@ const App: React.FC = () => {
                     type="time" 
                     value={manualEndTime} 
                     onChange={(e) => setManualEndTime(e.target.value)}
-                    style={{ padding: '12px', background: '#111', border: '1px solid var(--accent-color)', color: 'white', outline: 'none', fontFamily: 'monospace', colorScheme: 'dark', cursor: 'pointer' }} 
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--accent-color)', marginBottom: '10px' }}>VALOR POR HORA (ARS)</label>
-                <input type="number" value={manualRate} onChange={(e) => setManualRate(Number(e.target.value))} style={{ width: '100%', padding: '12px', background: '#000', border: '1px solid var(--surface-border)', color: 'white', outline: 'none', fontFamily: 'monospace' }} />
-              </div>
-              <div>
-                <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--accent-color)', marginBottom: '10px' }}>NOTA / DESCRIPCIÓN</label>
-                <textarea 
-                  value={manualNote} 
-                  onChange={(e) => setManualNote(e.target.value)} 
-                  placeholder="Ej: Reunión de planificación, corrección de bugs..."
-                  style={{ width: '100%', height: '80px', padding: '12px', background: '#000', border: '1px solid var(--surface-border)', color: 'white', outline: 'none', fontFamily: 'monospace', resize: 'none' }} 
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '16px', marginTop: '12px' }}>
-                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>GUARDAR</button>
-                <button type="button" onClick={() => { setShowManualEntry(false); setEditSessionId(null); }} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>CANCELAR</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <ManualEntryModal
+          clients={clients}
+          manualEntry={manualEntry}
+          setManualEntry={setManualEntry}
+          onSave={handleManualEntrySave}
+          onClose={() => setShowManualEntry(false)}
+        />
       )}
         {/* LOGS MODAL */}
         {showLogsModal && (

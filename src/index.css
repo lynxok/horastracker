@@ -143,6 +143,18 @@ body {
   overflow-x: hidden;
 }
 
+body.is-widget {
+  background: transparent !important;
+  background-image: none !important;
+  min-height: auto;
+}
+
+body.is-widget::before,
+body.is-widget::after {
+  display: none !important;
+}
+
+
 body::before {
   content: "";
   position: fixed;
