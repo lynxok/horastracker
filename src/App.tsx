@@ -15,7 +15,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.20';
+const APP_VERSION = '2.3.21';
 
 // --- TYPES ---
 declare global {
@@ -1097,111 +1097,144 @@ const App: React.FC = () => {
 
     return (
       <div 
-        className={`fade-in widget-container ${isTopBar ? 'top-bar-widget' : ''}`}
         onMouseEnter={() => setIsWidgetHovered(true)}
         onMouseLeave={() => setIsWidgetHovered(false)}
         style={{ 
           width: '100vw', 
-          height: isTopBar ? '40px' : '100vh', 
-          padding: '0 16px', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '12px', 
-          border: isTopBar ? 'none' : widgetConfig.border, 
-          borderBottom: isTopBar ? `1px solid ${widgetConfig.accentColor || 'var(--accent-color)'}` : (widgetConfig.border ? undefined : 'none'),
-          background: widgetConfig.background, 
-          backdropFilter: 'blur(20px)', 
-          color: widgetConfig.labelColor || 'white',
+          height: isTopBar ? '80px' : '100vh', // Full window height
           position: 'fixed',
           top: 0,
           left: 0,
-          overflow: 'hidden',
-          borderRadius: isTopBar ? '0' : widgetConfig.borderRadius,
-          transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-          opacity: isTopBar ? (isWidgetHovered ? 1 : 0.4) : (isWidgetHovered ? 1 : (settings.widgetOpacity || 0.4)),
-          transform: isTopBar && !isWidgetHovered ? 'translateY(-35px)' : 'translateY(0)',
           zIndex: 9999,
-          ...(!isTopBar ? widgetConfig.customStyle : {})
+          pointerEvents: 'none' // Allow clicking through the empty space of the 80px window
         }}>
-        {/* Drag handle - only for floating */}
-        {!isTopBar && (
-          <div style={{ 
-            position: 'absolute', top: 0, left: 0, bottom: 0, width: '24px', 
-            background: activeSessionId ? (widgetConfig.accentColor || 'var(--accent-color)') : 'rgba(255,255,255,0.05)',
-            opacity: 0.8,
-            cursor: 'grab',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRight: `1px solid ${widgetConfig.accentColor || 'rgba(255,255,255,0.1)'}`,
-            ...( { WebkitAppRegion: 'drag' } as any )
+        
+        {/* Actual Widget Content */}
+        <div 
+          className={`fade-in widget-container ${isTopBar ? 'top-bar-widget' : ''}`}
+          style={{ 
+            width: isTopBar ? '100%' : '300px', 
+            height: isTopBar ? '50px' : '100px', 
+            padding: '0 24px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '12px', 
+            border: isTopBar ? 'none' : widgetConfig.border, 
+            borderBottom: `2px solid ${widgetConfig.accentColor || 'var(--accent-color)'}`,
+            background: widgetConfig.background, 
+            backdropFilter: 'blur(25px)', 
+            color: widgetConfig.labelColor || 'white',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            overflow: 'hidden',
+            borderRadius: isTopBar ? '0' : widgetConfig.borderRadius,
+            transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+            opacity: isTopBar ? (isWidgetHovered ? 1 : 0.6) : (isWidgetHovered ? 1 : (settings.widgetOpacity || 0.4)),
+            transform: isTopBar && !isWidgetHovered ? 'translateY(-45px)' : 'translateY(0)',
+            boxShadow: isTopBar && isWidgetHovered ? `0 4px 30px ${widgetConfig.accentColor || 'var(--accent-glow)'}` : 'none',
+            pointerEvents: 'auto', // Re-enable pointer events for the bar itself
+            ...(!isTopBar ? widgetConfig.customStyle : {})
           }}>
-            <GripVertical size={14} color={activeSessionId ? 'black' : (widgetConfig.accentColor || 'white')} style={{ opacity: 0.5 }} />
-          </div>
-        )}
-
-        <div style={{ marginLeft: isTopBar ? '0' : '20px' }} className={activeSessionId ? 'active-pulse' : ''}>
-          {widgetConfig.icon}
-        </div>
-
-        <div style={{ flex: 1, display: 'flex', flexDirection: isTopBar ? 'row' : 'column', alignItems: isTopBar ? 'center' : 'stretch', gap: isTopBar ? '20px' : '0px', minWidth: 0, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', minWidth: isTopBar ? '150px' : '0' }}>
-            <div className="mono-font" style={{ fontSize: '0.5rem', color: widgetConfig.accentColor || 'var(--accent-color)', letterSpacing: '1px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {widgetConfig.label}
-            </div>
-            
-            <div className="mono-font" style={{ fontSize: isTopBar ? '1rem' : '1.2rem', fontWeight: 800, letterSpacing: '-0.5px', color: activeSessionId ? (widgetConfig.labelColor || 'white') : 'rgba(128,128,128,0.5)', marginTop: '-2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {isWidgetHovered && activeSessionId ? (
-                <span style={{ color: 'var(--success)' }}>${Math.floor(earnings).toLocaleString()}</span>
-              ) : (
-                activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"
-              )}
-            </div>
-          </div>
-
-          {/* Quick Note Input - smaller on top bar */}
-          <input 
-            type="text" 
-            placeholder="¿Tarea actual?" 
-            value={currentNote}
-            onChange={e => setCurrentNote(e.target.value)}
-            className="mono-font"
-            style={{ 
-              background: 'rgba(0,0,0,0.05)', 
-              border: 'none', 
-              borderBottom: `1px solid ${widgetConfig.accentColor || 'rgba(255,255,255,0.1)'}`, 
-              color: widgetConfig.accentColor || 'var(--accent-color)', 
-              fontSize: '0.6rem', 
-              flex: 1,
-              maxWidth: isTopBar ? '300px' : '100%',
-              padding: '2px 0',
-              outline: 'none',
-              marginTop: isTopBar ? '0' : '4px'
-            }}
-          />
-        </div>
-
-        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-          <button 
-            onClick={activeSessionId ? handlePunchOut : handlePunchIn} 
-            className="btn-primary"
-            style={{ 
-              width: '32px', height: '32px', padding: 0, justifyContent: 'center',
-              background: activeSessionId ? 'var(--danger)' : 'transparent',
-              borderColor: activeSessionId ? 'var(--danger)' : (widgetConfig.accentColor || 'var(--accent-color)'),
-              boxShadow: activeSessionId ? '0 0 15px var(--danger-glow)' : `0 0 10px ${widgetConfig.accentColor || 'var(--accent-glow)'}`,
-              color: activeSessionId ? 'white' : (widgetConfig.accentColor || 'var(--accent-color)')
-            }}>
-            {activeSessionId ? <Square fill="currentColor" size={14} /> : <Play fill="currentColor" size={14} style={{ marginLeft: '2px' }} />}
-          </button>
           
-          <button 
-            onClick={() => window.electronAPI?.closeWidget()}
-            className="btn-secondary"
-            style={{ width: '28px', height: '28px', padding: 0, justifyContent: 'center', background: 'rgba(255,255,255,0.05)', border: 'none', color: widgetConfig.accentColor || 'white' }}>
-            <Maximize2 size={14} />
-          </button>
+          {/* Peeking Indicator (only when hidden) */}
+          {isTopBar && !isWidgetHovered && (
+            <div style={{ 
+              position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+              width: '40px', height: '2px', background: widgetConfig.accentColor || 'var(--accent-color)',
+              borderRadius: '2px', opacity: 0.5
+            }} />
+          )}
+
+          {/* Drag handle - only for floating */}
+          {!isTopBar && (
+            <div style={{ 
+              position: 'absolute', top: 0, left: 0, bottom: 0, width: '24px', 
+              background: activeSessionId ? (widgetConfig.accentColor || 'var(--accent-color)') : 'rgba(255,255,255,0.05)',
+              opacity: 0.8,
+              cursor: 'grab',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRight: `1px solid ${widgetConfig.accentColor || 'rgba(255,255,255,0.1)'}`,
+              ...( { WebkitAppRegion: 'drag' } as any )
+            }}>
+              <GripVertical size={14} color={activeSessionId ? 'black' : (widgetConfig.accentColor || 'white')} style={{ opacity: 0.5 }} />
+            </div>
+          )}
+
+          <div style={{ marginLeft: isTopBar ? '0' : '20px' }} className={activeSessionId ? 'active-pulse' : ''}>
+            {widgetConfig.icon}
+          </div>
+
+          <div style={{ flex: 1, display: 'flex', flexDirection: isTopBar ? 'row' : 'column', alignItems: isTopBar ? 'center' : 'stretch', gap: isTopBar ? '30px' : '0px', minWidth: 0, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: isTopBar ? '160px' : '0' }}>
+              <div className="mono-font" style={{ fontSize: '0.5rem', color: widgetConfig.accentColor || 'var(--accent-color)', letterSpacing: '1px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {widgetConfig.label}
+              </div>
+              
+              <div className="mono-font" style={{ fontSize: isTopBar ? '1.1rem' : '1.2rem', fontWeight: 800, letterSpacing: '-0.5px', color: activeSessionId ? (widgetConfig.labelColor || 'white') : 'rgba(128,128,128,0.5)', marginTop: '-2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {isWidgetHovered && activeSessionId ? (
+                  <span style={{ color: 'var(--success)' }}>${Math.floor(earnings).toLocaleString()}</span>
+                ) : (
+                  activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"
+                )}
+              </div>
+            </div>
+
+            {/* Quick Note Input - smaller on top bar */}
+            <input 
+              type="text" 
+              placeholder="¿Qué estás haciendo?" 
+              value={currentNote}
+              onChange={e => setCurrentNote(e.target.value)}
+              className="mono-font"
+              style={{ 
+                background: 'rgba(255,255,255,0.03)', 
+                border: 'none', 
+                borderBottom: `1px solid ${widgetConfig.accentColor || 'rgba(255,255,255,0.1)'}`, 
+                color: widgetConfig.accentColor || 'var(--accent-color)', 
+                fontSize: '0.7rem', 
+                flex: 1,
+                maxWidth: isTopBar ? '400px' : '100%',
+                padding: '4px 8px',
+                outline: 'none',
+                marginTop: isTopBar ? '0' : '4px',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+            <button 
+              onClick={activeSessionId ? handlePunchOut : handlePunchIn} 
+              className="btn-primary"
+              style={{ 
+                width: '32px', height: '32px', padding: 0, justifyContent: 'center',
+                background: activeSessionId ? 'var(--danger)' : 'transparent',
+                borderColor: activeSessionId ? 'var(--danger)' : (widgetConfig.accentColor || 'var(--accent-color)'),
+                boxShadow: activeSessionId ? '0 0 15px var(--danger-glow)' : `0 0 10px ${widgetConfig.accentColor || 'var(--accent-glow)'}`,
+                color: activeSessionId ? 'white' : (widgetConfig.accentColor || 'var(--accent-color)')
+              }}>
+              {activeSessionId ? <Square fill="currentColor" size={14} /> : <Play fill="currentColor" size={14} style={{ marginLeft: '2px' }} />}
+            </button>
+            
+            <button 
+              onClick={() => window.electronAPI?.closeWidget()}
+              className="btn-secondary"
+              style={{ width: '28px', height: '28px', padding: 0, justifyContent: 'center', background: 'rgba(255,255,255,0.05)', border: 'none', color: widgetConfig.accentColor || 'white' }}>
+              <Maximize2 size={14} />
+            </button>
+          </div>
         </div>
+        
+        {/* Invisible hit area to trigger expansion when mouse is near the top */}
+        {isTopBar && (
+          <div style={{ 
+            position: 'absolute', top: 0, left: 0, width: '100%', height: '5px', 
+            background: 'transparent', pointerEvents: 'auto' 
+          }} />
+        )}
       </div>
     );
   }

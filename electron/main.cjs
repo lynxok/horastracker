@@ -168,21 +168,30 @@ function createWindow() {
   autoUpdater.checkForUpdatesAndNotify();
 }
 
+let currentWidgetMode = null;
+
 function createWidgetWindow(mode = 'floating') {
+  const isTopBar = mode === 'top-bar';
+  
   if (widgetWindow) {
-    widgetWindow.show();
-    return;
+    if (currentWidgetMode === mode) {
+      widgetWindow.show();
+      return;
+    } else {
+      // Mode changed, recreate window
+      widgetWindow.close();
+    }
   }
+
+  currentWidgetMode = mode;
 
   const { screen } = require('electron');
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth } = primaryDisplay.workAreaSize;
 
-  const isTopBar = mode === 'top-bar';
-
   widgetWindow = new BrowserWindow({
     width: isTopBar ? screenWidth : 300,
-    height: isTopBar ? 60 : 110,
+    height: isTopBar ? 80 : 110, // Increased height to allow internal sliding without clipping
     x: isTopBar ? 0 : undefined,
     y: isTopBar ? 0 : undefined,
     frame: false,
@@ -196,10 +205,10 @@ function createWidgetWindow(mode = 'floating') {
       contextIsolation: true,
     },
   });
-
-  // For top bar, we can handle the "peek" effect via window positioning or CSS
-  // Let's use a combination. 
   
+  // Set ignore mouse events only for the bottom part of the top bar when collapsed?
+  // No, let's handle it with CSS in the renderer.
+
   const widgetUrl = isDev 
     ? `http://localhost:5173?view=widget&mode=${mode}` 
     : `file://${path.join(__dirname, '../dist/index.html')}?view=widget&mode=${mode}`;
@@ -208,6 +217,7 @@ function createWidgetWindow(mode = 'floating') {
 
   widgetWindow.on('closed', () => {
     widgetWindow = null;
+    currentWidgetMode = null;
   });
 }
 
