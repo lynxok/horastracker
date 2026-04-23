@@ -12,9 +12,10 @@ import {
   startOfWeek, endOfWeek, startOfDay, endOfDay,
   isWithinInterval, parseISO
 } from 'date-fns';
-import { ThemeSelector, ThemeSelectorCompact } from './components/ThemeSelector';
+import { ThemeSelector } from './components/ThemeSelector';
 
-const APP_VERSION = '2.3.17';
+
+const APP_VERSION = '2.3.18';
 
 // --- TYPES ---
 declare global {
@@ -147,10 +148,10 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 import { useThematicSounds } from './hooks/useThematicSounds';
-import { formatDuration, formatCurrency, formatDate, formatTime } from './utils/formatters';
 import { InvoicingModal } from './components/modals/InvoicingModal';
 import { ClientModal } from './components/modals/ClientModal';
 import { ManualEntryModal } from './components/modals/ManualEntryModal';
+
 
 // --- CONFIGURACIÓN DE TIPOS ---
 const App: React.FC = () => {
@@ -191,22 +192,23 @@ const App: React.FC = () => {
   const [activeZoneClient, setActiveZoneClient] = useState<Client | null>(null);
   const [updateStatus, setUpdateStatus] = useState<'available' | 'downloaded' | 'idle' | 'checking' | 'not-available' | 'error'>('idle');
   const [appVersion, setAppVersion] = useState<string>('...');
-  const [isToastView, setIsToastView] = useState(false);
-  const [isWidgetView, setIsWidgetView] = useState(false);
   const [currentNote, setCurrentNote] = useState('');
-  const [manualNote, setManualNote] = useState('');
   const [toastData, setToastData] = useState<any>(null);
   const [isInvoicing, setIsInvoicing] = useState(false);
   const [isWidgetHovered, setIsWidgetHovered] = useState(false);
 
-  // Modal States
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [editSessionId, setEditSessionId] = useState<string | null>(null);
-  const [manualStartDate, setManualStartDate] = useState("");
-  const [manualStartTime, setManualStartTime] = useState("");
-  const [manualEndDate, setManualEndDate] = useState("");
-  const [manualEndTime, setManualEndTime] = useState("");
-  const [manualRate, setManualRate] = useState<number>(0);
+  const [manualEntry, setManualEntry] = useState({
+    clientId: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
+    startTime: '09:00',
+    endTime: '17:00',
+    description: '',
+    rate: 0
+  });
+
+
 
   const [showInvoicingModal, setShowInvoicingModal] = useState(false);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
@@ -337,7 +339,6 @@ const App: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('view') === 'toast') {
-      setIsToastView(true);
       const clientData = params.get('client');
       if (clientData) {
         try {
@@ -348,7 +349,6 @@ const App: React.FC = () => {
         }
       }
     } else if (params.get('view') === 'widget') {
-      setIsWidgetView(true);
       // Force transparency for widget mode
       document.body.style.background = 'transparent';
       document.body.style.backgroundImage = 'none';
@@ -356,50 +356,8 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const playThematicSound = (action: 'start' | 'stop') => {
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
 
-      const theme = settings.theme || 'cyberpunk';
-      
-      if (theme === 'harry-potter') {
-        // Magical "chime"
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(action === 'start' ? 880 : 440, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(action === 'start' ? 1760 : 220, audioCtx.currentTime + 0.5);
-      } else if (theme === 'marvel') {
-        // Power-up tech sound
-        oscillator.type = 'sawtooth';
-        oscillator.frequency.setValueAtTime(action === 'start' ? 100 : 800, audioCtx.currentTime);
-        oscillator.frequency.linearRampToValueAtTime(action === 'start' ? 1000 : 100, audioCtx.currentTime + 0.3);
-      } else if (theme === 'loki') {
-        // Retro "ding"
-        oscillator.type = 'triangle';
-        oscillator.frequency.setValueAtTime(660, audioCtx.currentTime);
-      } else if (theme === 'matrix') {
-        // Digital blip
-        oscillator.type = 'square';
-        oscillator.frequency.setValueAtTime(action === 'start' ? 150 : 100, audioCtx.currentTime);
-      } else {
-        // Cyberpunk neon pulse
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(action === 'start' ? 440 : 220, audioCtx.currentTime);
-      }
-
-      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.5);
-    } catch (e) {
-      console.error('Audio not supported', e);
-    }
-  };
 
   useEffect(() => {
     if (!window.electronAPI) return;
@@ -579,7 +537,8 @@ const App: React.FC = () => {
     };
     setSessions(prev => [...prev, newS]);
     setActiveSessionId(newS.id);
-    playThematicSound('start');
+    playThematicSound(settings.theme || 'cyberpunk', 'punch-in');
+
   };
 
   const handlePunchIn = () => {
@@ -595,7 +554,8 @@ const App: React.FC = () => {
     };
     setSessions(prev => [...prev, newS]);
     setActiveSessionId(newS.id);
-    playThematicSound('start');
+    playThematicSound(settings.theme || 'cyberpunk', 'punch-in');
+
   };
 
   const handlePunchOut = () => {
@@ -605,27 +565,27 @@ const App: React.FC = () => {
     ));
     setActiveSessionId(null);
     setCurrentNote(''); // Clear note after session ends
-    playThematicSound('stop');
+    playThematicSound(settings.theme || 'cyberpunk', 'punch-out');
+
   };
 
-  const handleManualEntry = (e: React.FormEvent) => {
-    e.preventDefault();
-    const manualStart = `${manualStartDate}T${manualStartTime}`;
-    const manualEnd = `${manualEndDate}T${manualEndTime}`;
-    const targetClient = settings.clients.find(c => c.id === settings.selectedClientId) || settings.clients[0];
+  const handleManualEntrySave = () => {
+    const manualStart = `${manualEntry.date}T${manualEntry.startTime}`;
+    const manualEnd = `${manualEntry.date}T${manualEntry.endTime}`;
+    const targetClient = settings.clients.find(c => c.id === manualEntry.clientId) || settings.clients[0];
     
     if (editSessionId) {
       setSessions(sessions.map(s => {
         if (s.id === editSessionId) {
-          if (s.invoiced) return s; // Protect invoiced
+          if (s.invoiced) return s; 
           return { 
             ...s, 
             startTime: parseISO(manualStart).toISOString(), 
             endTime: parseISO(manualEnd).toISOString(), 
-            rate: manualRate,
+            rate: manualEntry.rate,
             clientId: targetClient.id,
             clientName: targetClient.name,
-            note: manualNote
+            note: manualEntry.description
           };
         }
         return s;
@@ -635,43 +595,47 @@ const App: React.FC = () => {
         id: crypto.randomUUID(),
         startTime: parseISO(manualStart).toISOString(),
         endTime: parseISO(manualEnd).toISOString(),
-        rate: manualRate,
+        rate: manualEntry.rate,
         clientId: targetClient.id,
         clientName: targetClient.name,
-        note: manualNote
+        note: manualEntry.description
       }]);
     }
     setShowManualEntry(false);
     setEditSessionId(null);
-    setManualNote('');
   };
+
 
   const openManualModal = (session?: WorkSession) => {
     if (session) {
       if (session.invoiced) return alert("Esta sesión ya fue facturada y está bloqueada.");
       setEditSessionId(session.id);
-      const start = format(parseISO(session.startTime), "yyyy-MM-dd'T'HH:mm");
-      const end = session.endTime ? format(parseISO(session.endTime), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm");
-      setManualStartDate(start.split('T')[0]);
-      setManualStartTime(start.split('T')[1]);
-      setManualEndDate(end.split('T')[0]);
-      setManualEndTime(end.split('T')[1]);
-      setManualRate(session.rate);
-      setManualNote(session.note || '');
-      updateSetting('selectedClientId', session.clientId);
+      const start = parseISO(session.startTime);
+      const end = session.endTime ? parseISO(session.endTime) : new Date();
+      
+      setManualEntry({
+        clientId: session.clientId,
+        date: format(start, 'yyyy-MM-dd'),
+        startTime: format(start, 'HH:mm'),
+        endTime: format(end, 'HH:mm'),
+        description: session.note || '',
+        rate: session.rate
+      });
     } else {
       const activeClient = settings.clients.find(c => c.id === settings.selectedClientId) || settings.clients[0];
       setEditSessionId(null);
-      const now = format(new Date(), "yyyy-MM-dd'T'HH:mm");
-      setManualStartDate(now.split('T')[0]);
-      setManualStartTime(now.split('T')[1]);
-      setManualEndDate(now.split('T')[0]);
-      setManualEndTime(now.split('T')[1]);
-      setManualRate(activeClient.hourlyRate);
-      setManualNote('');
+      setManualEntry({
+        clientId: activeClient.id,
+        date: format(new Date(), 'yyyy-MM-dd'),
+        startTime: format(new Date(), 'HH:mm'),
+        endTime: format(new Date(), 'HH:mm'),
+        description: '',
+        rate: activeClient.hourlyRate
+      });
     }
     setShowManualEntry(true);
   };
+
 
   const deleteSession = (id: string) => {
     const session = sessions.find(s => s.id === id);
@@ -2100,7 +2064,8 @@ const App: React.FC = () => {
           <ClientModal
             editClientId={editClientId}
             tempClient={tempClient}
-            setTempClient={setTempClient}
+            setTempClient={(c) => setTempClient(prev => ({...prev, ...c}))}
+
             onSave={saveClient}
             onClose={() => setShowClientModal(false)}
             onDetectIp={async () => {
@@ -2158,51 +2123,17 @@ const App: React.FC = () => {
         />
       )}
 
-
       {/* MODAL CARGA MANUAL */}
       {showManualEntry && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(30px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}>
-          <div className="premium-card fade-in" style={{ width: '100%', maxWidth: '450px', border: '1px solid var(--accent-color)' }}>
-            <h2 style={{ marginBottom: '24px', fontSize: '1.2rem' }}>{editSessionId ? '[ EDITAR TURNO ]' : '[ CARGA MANUAL DE TURNO ]'}</h2>
-            <form onSubmit={handleManualEntry} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <div>
-                <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--accent-color)', marginBottom: '10px' }}>HORA DE ENTRADA</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <input 
-                    type="date" 
-                    value={manualStartDate} 
-                    onChange={(e) => setManualStartDate(e.target.value)}
-                    style={{ padding: '12px', background: '#111', border: '1px solid var(--accent-color)', color: 'white', outline: 'none', fontFamily: 'monospace', colorScheme: 'dark', cursor: 'pointer' }} 
-                  />
-                  <input 
-                    type="time" 
-                    value={manualStartTime} 
-                    onChange={(e) => setManualStartTime(e.target.value)}
-                    style={{ padding: '12px', background: '#111', border: '1px solid var(--accent-color)', color: 'white', outline: 'none', fontFamily: 'monospace', colorScheme: 'dark', cursor: 'pointer' }} 
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--accent-color)', marginBottom: '10px' }}>HORA DE SALIDA</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <input 
-                    type="date" 
-                    value={manualEndDate} 
-                    onChange={(e) => setManualEndDate(e.target.value)}
-                    style={{ padding: '12px', background: '#111', border: '1px solid var(--accent-color)', color: 'white', outline: 'none', fontFamily: 'monospace', colorScheme: 'dark', cursor: 'pointer' }} 
-                  />
-                  <input 
-                    type="time" 
-                    value={manualEndTime} 
-                    onChange={(e) => setManualEndTime(e.target.value)}
         <ManualEntryModal
-          clients={clients}
+          clients={settings.clients}
           manualEntry={manualEntry}
           setManualEntry={setManualEntry}
           onSave={handleManualEntrySave}
           onClose={() => setShowManualEntry(false)}
         />
       )}
+
         {/* LOGS MODAL */}
         {showLogsModal && (
           <div className="modal-overlay">
