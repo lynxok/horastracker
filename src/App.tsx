@@ -15,7 +15,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.18';
+const APP_VERSION = '2.3.19';
 
 // --- TYPES ---
 declare global {
@@ -1139,12 +1139,12 @@ const App: React.FC = () => {
           )}
         </div>
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0px' }}>
-          <div className="mono-font" style={{ fontSize: '0.5rem', color: widgetConfig.accentColor || 'var(--accent-color)', letterSpacing: '1px', fontWeight: 800 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0px', minWidth: 0, overflow: 'hidden' }}>
+          <div className="mono-font" style={{ fontSize: '0.5rem', color: widgetConfig.accentColor || 'var(--accent-color)', letterSpacing: '1px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {widgetConfig.label}
           </div>
           
-          <div className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.5px', color: activeSessionId ? (widgetConfig.labelColor || 'white') : 'rgba(128,128,128,0.5)', marginTop: '-2px' }}>
+          <div className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.5px', color: activeSessionId ? (widgetConfig.labelColor || 'white') : 'rgba(128,128,128,0.5)', marginTop: '-2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {isWidgetHovered && activeSessionId ? (
               <span style={{ color: 'var(--success)' }}>${Math.floor(earnings).toLocaleString()}</span>
             ) : (
@@ -1173,7 +1173,7 @@ const App: React.FC = () => {
           />
         </div>
 
-        <div style={{ display: 'flex', gap: '6px' }}>
+        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
           <button 
             onClick={activeSessionId ? handlePunchOut : handlePunchIn} 
             className="btn-primary"
