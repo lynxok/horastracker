@@ -15,7 +15,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.25';
+const APP_VERSION = '2.3.26';
 
 // --- TYPES ---
 declare global {
@@ -59,6 +59,7 @@ declare global {
       openBackupsFolder: () => Promise<{ success: boolean }>;
       deepScanData: () => Promise<any[]>;
       importDataFromPath: (path: string) => Promise<{ success: boolean; error?: string }>;
+      setIgnoreMouseEvents: (ignore: boolean, options?: { forward: boolean }) => void;
     }
   }
 }
