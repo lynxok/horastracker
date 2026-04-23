@@ -359,6 +359,13 @@ ipcMain.handle('restart-app', () => {
 });
 
 // Widget Handlers
+ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    win.setIgnoreMouseEvents(ignore, options);
+  }
+});
+
 ipcMain.on('open-widget', (event, mode) => {
   createWidgetWindow(mode || 'floating');
   if (mainWindow) mainWindow.hide();

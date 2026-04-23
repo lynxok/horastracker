@@ -15,7 +15,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.24';
+const APP_VERSION = '2.3.25';
 
 // --- TYPES ---
 declare global {
@@ -1100,6 +1100,17 @@ const App: React.FC = () => {
 
     const widgetMode = new URLSearchParams(window.location.search).get('mode') || 'floating';
     const isTopBar = widgetMode === 'top-bar';
+
+    // Handle Click-through for Top Bar
+    useEffect(() => {
+      if (isWidgetView && isTopBar) {
+        if (isWidgetHovered) {
+          window.electronAPI?.setIgnoreMouseEvents(false);
+        } else {
+          window.electronAPI?.setIgnoreMouseEvents(true, { forward: true });
+        }
+      }
+    }, [isWidgetHovered, isTopBar, isWidgetView]);
 
     return (
       <div 
