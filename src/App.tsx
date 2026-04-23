@@ -15,7 +15,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.21';
+const APP_VERSION = '2.3.22';
 
 // --- TYPES ---
 declare global {
@@ -1270,9 +1270,9 @@ const App: React.FC = () => {
   // --- TOAST VIEW ---
   if (isToastView) {
     return (
-      <div className="fade-in" style={{ height: '100vh', padding: '20px', background: 'rgba(15, 23, 42, 0.95)', border: '1px solid var(--accent-color)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div className="mono-font" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--success)', fontSize: '0.7rem', fontWeight: 800 }}>
+      <div className="fade-in" style={{ height: '100vh', padding: '16px', background: 'rgba(15, 23, 42, 0.98)', border: '1px solid var(--accent-color)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <div className="mono-font" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--success)', fontSize: '0.65rem', fontWeight: 800 }}>
              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', boxShadow: '0 0 10px var(--success)' }}></div>
              SISTEMA LYNX
           </div>
@@ -1281,19 +1281,19 @@ const App: React.FC = () => {
 
         {updateStatus === 'downloaded' ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h2 className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '8px', letterSpacing: '1px' }}>ACTUALIZACIÓN LISTA V{appVersion}</h2>
-            <p className="mono-font" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>Una nueva versión ha sido preparada e instalada automáticamente. Reinicia para aplicar.</p>
+            <h2 className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '8px', letterSpacing: '1px' }}>ACTUALIZACIÓN LISTA</h2>
+            <p className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: 1.4 }}>Se ha instalado la versión <b>v{appVersion}</b> automáticamente. Reinicia para aplicar los cambios.</p>
             <button 
               onClick={() => window.electronAPI?.restartApp()} 
               className="btn-primary" 
-              style={{ width: '100%', padding: '16px', fontWeight: 800, borderColor: 'var(--danger)', color: 'white', background: 'rgba(239, 68, 68, 0.1)' }}>
+              style={{ width: '100%', padding: '14px', fontWeight: 800, borderColor: 'var(--danger)', color: 'white', background: 'rgba(239, 68, 68, 0.1)', boxShadow: '0 0 20px rgba(239, 68, 68, 0.2)' }}>
               REINICIAR AHORA
             </button>
           </div>
         ) : toastData ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h2 className="mono-font" style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '8px' }}>ZONA DETECTADA</h2>
-            <p className="mono-font" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>Estás en la red de <b>{toastData.name}</b>. ¿Quieres iniciar el cronómetro?</p>
+            <h2 className="mono-font" style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '6px' }}>ZONA DETECTADA</h2>
+            <p className="mono-font" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>Estás en la red de <b>{toastData.name}</b>. ¿Quieres iniciar el cronómetro?</p>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button 
                 onClick={() => {

@@ -1075,7 +1075,7 @@ function createToastWindow(client) {
   const { width, height } = primaryDisplay.workAreaSize;
 
   const toastWidth = 400;
-  const toastHeight = 220;
+  const toastHeight = 280;
   const x = width - toastWidth - 20;
   const y = height - toastHeight - 20;
 
