@@ -172,28 +172,44 @@ let currentWidgetMode = null;
 
 function createWidgetWindow(mode = 'floating') {
   const isTopBar = mode === 'top-bar';
-  
-  if (widgetWindow) {
-    if (currentWidgetMode === mode) {
-      widgetWindow.show();
-      return;
-    } else {
-      // Mode changed, recreate window
-      widgetWindow.close();
-    }
-  }
-
-  currentWidgetMode = mode;
-
   const { screen } = require('electron');
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth } = primaryDisplay.workAreaSize;
 
+  const width = isTopBar ? screenWidth : 300;
+  const height = isTopBar ? 80 : 110;
+  const x = isTopBar ? 0 : undefined;
+  const y = isTopBar ? 0 : undefined;
+
+  const widgetUrl = isDev 
+    ? `http://localhost:5173?view=widget&mode=${mode}` 
+    : `file://${path.join(__dirname, '../dist/index.html')}?view=widget&mode=${mode}`;
+
+  if (widgetWindow) {
+    if (currentWidgetMode !== mode) {
+      currentWidgetMode = mode;
+      widgetWindow.hide();
+      widgetWindow.setSize(width, height);
+      if (isTopBar) {
+        widgetWindow.setPosition(0, 0);
+      } else {
+        // Center for floating if it was top-bar
+        widgetWindow.center();
+      }
+      widgetWindow.loadURL(widgetUrl);
+      widgetWindow.show();
+    } else {
+      widgetWindow.show();
+    }
+    return;
+  }
+
+  currentWidgetMode = mode;
+
   widgetWindow = new BrowserWindow({
-    width: isTopBar ? screenWidth : 300,
-    height: isTopBar ? 80 : 110, // Increased height to allow internal sliding without clipping
-    x: isTopBar ? 0 : undefined,
-    y: isTopBar ? 0 : undefined,
+    width,
+    height,
+    x, y,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -206,13 +222,6 @@ function createWidgetWindow(mode = 'floating') {
     },
   });
   
-  // Set ignore mouse events only for the bottom part of the top bar when collapsed?
-  // No, let's handle it with CSS in the renderer.
-
-  const widgetUrl = isDev 
-    ? `http://localhost:5173?view=widget&mode=${mode}` 
-    : `file://${path.join(__dirname, '../dist/index.html')}?view=widget&mode=${mode}`;
-
   widgetWindow.loadURL(widgetUrl);
 
   widgetWindow.on('closed', () => {

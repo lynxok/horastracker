@@ -15,7 +15,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.22';
+const APP_VERSION = '2.3.23';
 
 // --- TYPES ---
 declare global {
@@ -725,7 +725,13 @@ const App: React.FC = () => {
   };
 
   const updateSetting = (key: keyof AppSettings, value: any) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    setSettings(prev => {
+      const next = { ...prev, [key]: value };
+      if (key === 'widgetMode' && window.electronAPI) {
+        window.electronAPI.openWidget(value);
+      }
+      return next;
+    });
     if (key === 'minimizeToTray' && window.electronAPI) window.electronAPI?.setMinimizeToTray(value);
     if (key === 'autoStart' && window.electronAPI) window.electronAPI?.setAutostart(value);
   };
@@ -1141,8 +1147,8 @@ const App: React.FC = () => {
           {isTopBar && !isWidgetHovered && (
             <div style={{ 
               position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-              width: '40px', height: '2px', background: widgetConfig.accentColor || 'var(--accent-color)',
-              borderRadius: '2px', opacity: 0.5
+              width: '60px', height: '3px', background: widgetConfig.accentColor || 'var(--accent-color)',
+              borderRadius: '3px', opacity: 0.8, boxShadow: `0 0 10px ${widgetConfig.accentColor || 'var(--accent-color)'}`
             }} />
           )}
 
@@ -1231,7 +1237,7 @@ const App: React.FC = () => {
         {/* Invisible hit area to trigger expansion when mouse is near the top */}
         {isTopBar && (
           <div style={{ 
-            position: 'absolute', top: 0, left: 0, width: '100%', height: '5px', 
+            position: 'absolute', top: 0, left: 0, width: '100%', height: '10px', 
             background: 'transparent', pointerEvents: 'auto' 
           }} />
         )}
