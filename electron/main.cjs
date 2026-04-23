@@ -168,15 +168,23 @@ function createWindow() {
   autoUpdater.checkForUpdatesAndNotify();
 }
 
-function createWidgetWindow() {
+function createWidgetWindow(mode = 'floating') {
   if (widgetWindow) {
     widgetWindow.show();
     return;
   }
 
+  const { screen } = require('electron');
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth } = primaryDisplay.workAreaSize;
+
+  const isTopBar = mode === 'top-bar';
+
   widgetWindow = new BrowserWindow({
-    width: 300,
-    height: 110,
+    width: isTopBar ? screenWidth : 300,
+    height: isTopBar ? 60 : 110,
+    x: isTopBar ? 0 : undefined,
+    y: isTopBar ? 0 : undefined,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -189,17 +197,14 @@ function createWidgetWindow() {
     },
   });
 
+  // For top bar, we can handle the "peek" effect via window positioning or CSS
+  // Let's use a combination. 
+  
   const widgetUrl = isDev 
-    ? 'http://localhost:5173?view=widget' 
-    : `file://${path.join(__dirname, '../dist/index.html')}?view=widget`;
+    ? `http://localhost:5173?view=widget&mode=${mode}` 
+    : `file://${path.join(__dirname, '../dist/index.html')}?view=widget&mode=${mode}`;
 
-  if (isDev) {
-    widgetWindow.loadURL(widgetUrl);
-  } else {
-    // In production, loadFile doesn't support query params directly in some versions, 
-    // so we use loadURL with file:// protocol
-    widgetWindow.loadURL(widgetUrl);
-  }
+  widgetWindow.loadURL(widgetUrl);
 
   widgetWindow.on('closed', () => {
     widgetWindow = null;
@@ -335,8 +340,8 @@ ipcMain.handle('restart-app', () => {
 });
 
 // Widget Handlers
-ipcMain.on('open-widget', () => {
-  createWidgetWindow();
+ipcMain.on('open-widget', (event, mode) => {
+  createWidgetWindow(mode || 'floating');
   if (mainWindow) mainWindow.hide();
 });
 

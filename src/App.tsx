@@ -15,7 +15,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.19';
+const APP_VERSION = '2.3.20';
 
 // --- TYPES ---
 declare global {
@@ -121,6 +121,7 @@ interface AppSettings {
   invoicePath?: string;
   theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean' | 'harry-potter' | 'marvel' | 'loki' | 'winamp';
   widgetOpacity: number;
+  widgetMode?: 'floating' | 'top-bar';
 }
 
 const DEFAULT_CLIENTS: Client[] = [
@@ -144,7 +145,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   arcaInfo: { cuit: '20326691314', puntoVenta: '2', certPath: '', keyPath: '', productionMode: true },
   invoicePath: '',
   theme: 'cyberpunk',
-  widgetOpacity: 0.2
+  widgetOpacity: 0.2,
+  widgetMode: 'floating'
 };
 
 import { useThematicSounds } from './hooks/useThematicSounds';
@@ -1091,68 +1093,74 @@ const App: React.FC = () => {
     const earnings = activeS ? (differenceInSeconds(now, parseISO(activeS.startTime)) / 3600) * activeS.rate : 0;
 
     return (
+    const widgetMode = new URLSearchParams(window.location.search).get('mode') || 'floating';
+    const isTopBar = widgetMode === 'top-bar';
+
+    return (
       <div 
-        className="fade-in widget-container" 
+        className={`fade-in widget-container ${isTopBar ? 'top-bar-widget' : ''}`}
         onMouseEnter={() => setIsWidgetHovered(true)}
         onMouseLeave={() => setIsWidgetHovered(false)}
         style={{ 
           width: '100vw', 
-          height: '100vh', 
+          height: isTopBar ? '40px' : '100vh', 
           padding: '0 16px', 
           display: 'flex', 
           alignItems: 'center', 
           gap: '12px', 
-          border: widgetConfig.border, 
+          border: isTopBar ? 'none' : widgetConfig.border, 
+          borderBottom: isTopBar ? `1px solid ${widgetConfig.accentColor || 'var(--accent-color)'}` : (widgetConfig.border ? undefined : 'none'),
           background: widgetConfig.background, 
           backdropFilter: 'blur(20px)', 
           color: widgetConfig.labelColor || 'white',
-          position: 'relative',
+          position: 'fixed',
+          top: 0,
+          left: 0,
           overflow: 'hidden',
-          borderRadius: widgetConfig.borderRadius,
-          transition: 'all 0.4s ease-in-out',
-          opacity: isWidgetHovered ? 1 : (settings.widgetOpacity || 0.4),
-          ...widgetConfig.customStyle
+          borderRadius: isTopBar ? '0' : widgetConfig.borderRadius,
+          transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+          opacity: isTopBar ? (isWidgetHovered ? 1 : 0.4) : (isWidgetHovered ? 1 : (settings.widgetOpacity || 0.4)),
+          transform: isTopBar && !isWidgetHovered ? 'translateY(-35px)' : 'translateY(0)',
+          zIndex: 9999,
+          ...(!isTopBar ? widgetConfig.customStyle : {})
         }}>
-        {/* Drag handle */}
-        <div style={{ 
-          position: 'absolute', top: 0, left: 0, bottom: 0, width: '24px', 
-          background: activeSessionId ? (widgetConfig.accentColor || 'var(--accent-color)') : 'rgba(255,255,255,0.05)',
-          opacity: 0.8,
-          cursor: 'grab',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRight: `1px solid ${widgetConfig.accentColor || 'rgba(255,255,255,0.1)'}`,
-          ...( { WebkitAppRegion: 'drag' } as any )
-        }}>
-          <GripVertical size={14} color={activeSessionId ? 'black' : (widgetConfig.accentColor || 'white')} style={{ opacity: 0.5 }} />
-        </div>
+        {/* Drag handle - only for floating */}
+        {!isTopBar && (
+          <div style={{ 
+            position: 'absolute', top: 0, left: 0, bottom: 0, width: '24px', 
+            background: activeSessionId ? (widgetConfig.accentColor || 'var(--accent-color)') : 'rgba(255,255,255,0.05)',
+            opacity: 0.8,
+            cursor: 'grab',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRight: `1px solid ${widgetConfig.accentColor || 'rgba(255,255,255,0.1)'}`,
+            ...( { WebkitAppRegion: 'drag' } as any )
+          }}>
+            <GripVertical size={14} color={activeSessionId ? 'black' : (widgetConfig.accentColor || 'white')} style={{ opacity: 0.5 }} />
+          </div>
+        )}
 
-        <div style={{ marginLeft: '20px' }} className={activeSessionId ? 'active-pulse' : ''}>
+        <div style={{ marginLeft: isTopBar ? '0' : '20px' }} className={activeSessionId ? 'active-pulse' : ''}>
           {widgetConfig.icon}
-          {settings.theme === 'winamp' && activeSessionId && (
-            <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '14px', marginTop: '4px', opacity: 0.8 }}>
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="winamp-bar" style={{ width: '3px', background: '#00ff00', animationDelay: `${i * 0.15}s` }} />
-              ))}
-            </div>
-          )}
         </div>
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0px', minWidth: 0, overflow: 'hidden' }}>
-          <div className="mono-font" style={{ fontSize: '0.5rem', color: widgetConfig.accentColor || 'var(--accent-color)', letterSpacing: '1px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {widgetConfig.label}
-          </div>
-          
-          <div className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.5px', color: activeSessionId ? (widgetConfig.labelColor || 'white') : 'rgba(128,128,128,0.5)', marginTop: '-2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {isWidgetHovered && activeSessionId ? (
-              <span style={{ color: 'var(--success)' }}>${Math.floor(earnings).toLocaleString()}</span>
-            ) : (
-              activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"
-            )}
+        <div style={{ flex: 1, display: 'flex', flexDirection: isTopBar ? 'row' : 'column', alignItems: isTopBar ? 'center' : 'stretch', gap: isTopBar ? '20px' : '0px', minWidth: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: isTopBar ? '150px' : '0' }}>
+            <div className="mono-font" style={{ fontSize: '0.5rem', color: widgetConfig.accentColor || 'var(--accent-color)', letterSpacing: '1px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {widgetConfig.label}
+            </div>
+            
+            <div className="mono-font" style={{ fontSize: isTopBar ? '1rem' : '1.2rem', fontWeight: 800, letterSpacing: '-0.5px', color: activeSessionId ? (widgetConfig.labelColor || 'white') : 'rgba(128,128,128,0.5)', marginTop: '-2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {isWidgetHovered && activeSessionId ? (
+                <span style={{ color: 'var(--success)' }}>${Math.floor(earnings).toLocaleString()}</span>
+              ) : (
+                activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"
+              )}
+            </div>
           </div>
 
-          {/* Quick Note Input */}
+          {/* Quick Note Input - smaller on top bar */}
           <input 
             type="text" 
             placeholder="¿Tarea actual?" 
@@ -1165,10 +1173,11 @@ const App: React.FC = () => {
               borderBottom: `1px solid ${widgetConfig.accentColor || 'rgba(255,255,255,0.1)'}`, 
               color: widgetConfig.accentColor || 'var(--accent-color)', 
               fontSize: '0.6rem', 
-              width: '100%', 
+              flex: 1,
+              maxWidth: isTopBar ? '300px' : '100%',
               padding: '2px 0',
               outline: 'none',
-              marginTop: '4px'
+              marginTop: isTopBar ? '0' : '4px'
             }}
           />
         </div>
@@ -1178,13 +1187,13 @@ const App: React.FC = () => {
             onClick={activeSessionId ? handlePunchOut : handlePunchIn} 
             className="btn-primary"
             style={{ 
-              width: '36px', height: '36px', padding: 0, justifyContent: 'center',
+              width: '32px', height: '32px', padding: 0, justifyContent: 'center',
               background: activeSessionId ? 'var(--danger)' : 'transparent',
               borderColor: activeSessionId ? 'var(--danger)' : (widgetConfig.accentColor || 'var(--accent-color)'),
               boxShadow: activeSessionId ? '0 0 15px var(--danger-glow)' : `0 0 10px ${widgetConfig.accentColor || 'var(--accent-glow)'}`,
               color: activeSessionId ? 'white' : (widgetConfig.accentColor || 'var(--accent-color)')
             }}>
-            {activeSessionId ? <Square fill="currentColor" size={16} /> : <Play fill="currentColor" size={16} style={{ marginLeft: '2px' }} />}
+            {activeSessionId ? <Square fill="currentColor" size={14} /> : <Play fill="currentColor" size={14} style={{ marginLeft: '2px' }} />}
           </button>
           
           <button 
@@ -1379,7 +1388,7 @@ const App: React.FC = () => {
                       {activeSessionId ? <Square fill="currentColor" size={40} /> : <Play fill="currentColor" size={40} style={{ marginLeft: '8px' }} />}
                     </button>
                     <button 
-                      onClick={() => window.electronAPI?.openWidget()}
+                      onClick={() => window.electronAPI?.openWidget(settings.widgetMode)}
                       className="btn-secondary" 
                       style={{ fontSize: '0.6rem', padding: '8px', justifyContent: 'center', gap: '8px', borderStyle: 'dashed' }}>
                       <Minus size={14} /> MODO WIDGET
@@ -1725,6 +1734,24 @@ const App: React.FC = () => {
                   <span className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>Si la cajita roja (X) minimiza o cierra de verdad la aplicación.</span>
                 </div>
               </label>
+
+              <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--surface-border)' }}>
+                <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>MODO DE PRESENTACIÓN DEL WIDGET</label>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button 
+                    onClick={() => updateSetting('widgetMode', 'floating')}
+                    className={settings.widgetMode === 'floating' ? 'btn-primary' : 'btn-secondary'}
+                    style={{ flex: 1, fontSize: '0.7rem', padding: '10px' }}>
+                    VENTANA FLOTANTE
+                  </button>
+                  <button 
+                    onClick={() => updateSetting('widgetMode', 'top-bar')}
+                    className={settings.widgetMode === 'top-bar' ? 'btn-primary' : 'btn-secondary'}
+                    style={{ flex: 1, fontSize: '0.7rem', padding: '10px' }}>
+                    BARRA SUPERIOR
+                  </button>
+                </div>
+              </div>
 
               <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--surface-border)' }}>
                 <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
