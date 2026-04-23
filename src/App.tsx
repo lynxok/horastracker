@@ -1092,7 +1092,6 @@ const App: React.FC = () => {
     const activeS = sessions.find(s => s.id === activeSessionId);
     const earnings = activeS ? (differenceInSeconds(now, parseISO(activeS.startTime)) / 3600) * activeS.rate : 0;
 
-    return (
     const widgetMode = new URLSearchParams(window.location.search).get('mode') || 'floating';
     const isTopBar = widgetMode === 'top-bar';
 
