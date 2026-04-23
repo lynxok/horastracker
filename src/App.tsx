@@ -54,7 +54,7 @@ declare global {
       closeToast: () => void;
       onStartSessionFromToast: (callback: (client: any) => void) => void;
       toastActionStart: (client: any) => void;
-      openWidget: () => void;
+      openWidget: (mode?: string) => void;
       closeWidget: () => void;
       openBackupsFolder: () => Promise<{ success: boolean }>;
       deepScanData: () => Promise<any[]>;
