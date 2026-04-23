@@ -15,7 +15,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.23';
+const APP_VERSION = '2.3.24';
 
 // --- TYPES ---
 declare global {
