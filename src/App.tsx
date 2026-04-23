@@ -162,7 +162,7 @@ const App: React.FC = () => {
   
   // App Infrastructure State
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(true);
   const [lockInput, setLockInput] = useState('');
   
   const { playThematicSound } = useThematicSounds();
@@ -287,9 +287,12 @@ const App: React.FC = () => {
       // Lock gate 
       if (savedSettings.appPassword && savedSettings.appPassword.length > 0) {
         setIsUnlocked(false);
+      } else {
+        setIsUnlocked(true);
       }
 
       setIsLoaded(true);
+
 
       if (window.electronAPI) {
         window.electronAPI?.setMinimizeToTray(savedSettings.minimizeToTray);
