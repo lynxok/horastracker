@@ -181,9 +181,15 @@ function createWidgetWindow(mode = 'floating') {
   const x = isTopBar ? 0 : undefined;
   const y = isTopBar ? 0 : undefined;
 
+  const url = require('url');
   const widgetUrl = isDev 
     ? `http://localhost:5173?view=widget&mode=${mode}` 
-    : `file://${path.join(__dirname, '../dist/index.html')}?view=widget&mode=${mode}`;
+    : url.format({
+        pathname: path.join(__dirname, '../dist/index.html'),
+        protocol: 'file:',
+        slashes: true,
+        query: { view: 'widget', mode }
+      });
 
   if (widgetWindow) {
     if (currentWidgetMode !== mode) {
@@ -371,6 +377,15 @@ ipcMain.on('open-widget', (event, mode) => {
   if (mainWindow) mainWindow.hide();
 });
 
+ipcMain.on('sync-monitoring-data', (event, data) => {
+  // Broadcast to all windows except the sender
+  BrowserWindow.getAllWindows().forEach(win => {
+    if (win.webContents !== event.sender) {
+      win.webContents.send('monitoring-data-update', data);
+    }
+  });
+});
+
 ipcMain.on('close-widget', () => {
   if (widgetWindow) {
     widgetWindow.close();
@@ -383,7 +398,9 @@ ipcMain.on('close-widget', () => {
 
 // Settings Handlers
 ipcMain.on('set-minimize-to-tray', (event, value) => { minimizeToTray = value; });
-ipcMain.on('update-tray', (event, statusText) => updateTrayMenu(statusText));
+ipcMain.on('update-tray', (event, statusText) => {
+  if (tray) tray.setToolTip(`LYNX: ${statusText}`);
+});
 ipcMain.handle('set-autostart', (event, autoStart) => {
   try {
     app.setLoginItemSettings({ 

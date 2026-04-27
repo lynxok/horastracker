@@ -39,5 +39,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openBackupsFolder: () => ipcRenderer.invoke('open-backups-folder'),
   deepScanData: () => ipcRenderer.invoke('deep-scan-data'),
   importDataFromPath: (path) => ipcRenderer.invoke('import-data-from-path', path),
-  setIgnoreMouseEvents: (ignore, options) => ipcRenderer.send('set-ignore-mouse-events', ignore, options)
+  setIgnoreMouseEvents: (ignore, options) => ipcRenderer.send('set-ignore-mouse-events', ignore, options),
+  onMonitoringDataUpdate: (callback) => ipcRenderer.on('monitoring-data-update', (event, data) => callback(data))
 });

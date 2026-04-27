@@ -401,10 +401,13 @@ const App: React.FC = () => {
     if (isLoaded && window.electronAPI) {
       const activeS = sessions.find(s => s.id === activeSessionId);
       
-      // Sync IP Monitoring
+      // Sync IP Monitoring and Widget State
       window.electronAPI.syncMonitoringData({ 
         clients: settings.clients,
-        activeClientId: activeS ? activeS.clientId : null
+        activeClientId: activeS ? activeS.clientId : null,
+        activeSessionId: activeSessionId,
+        settings: settings,
+        sessions: sessions // Sync full sessions to ensure consistency
       });
 
       // Sync Tray Menu Clients
@@ -413,7 +416,24 @@ const App: React.FC = () => {
         activeSession: activeS || null
       });
     }
-  }, [isLoaded, settings.clients, activeSessionId, sessions]);
+  }, [isLoaded, settings, activeSessionId, sessions]);
+
+  // Listen for sync from other windows
+  useEffect(() => {
+    if (window.electronAPI) {
+      window.electronAPI.onMonitoringDataUpdate((data: any) => {
+        if (data.activeSessionId !== undefined && data.activeSessionId !== activeSessionId) {
+          setActiveSessionId(data.activeSessionId);
+        }
+        if (data.sessions && JSON.stringify(data.sessions) !== JSON.stringify(sessions)) {
+          setSessions(data.sessions);
+        }
+        if (data.settings && JSON.stringify(data.settings) !== JSON.stringify(settings)) {
+          setSettings(data.settings);
+        }
+      });
+    }
+  }, [activeSessionId, sessions, settings]);
 
   // Tick & Tray Sync
   useEffect(() => {
@@ -1084,12 +1104,13 @@ const App: React.FC = () => {
             icon: <Cpu size={24} color="var(--accent-color)" />,
             borderRadius: '4px',
             border: '1px solid var(--accent-color)',
-            background: 'rgba(2, 6, 23, 0.9)',
+            background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.95) 0%, rgba(15, 23, 42, 0.9) 100%)',
             label: isWidgetHovered && activeSessionId ? '💰 CRÉDITOS ACUMULADOS' : '⚡ ENLACE NEURAL',
             labelColor: 'var(--accent-color)',
             accentColor: 'var(--accent-color)',
             customStyle: {
-              boxShadow: '0 0 20px var(--accent-glow)'
+              boxShadow: '0 0 30px var(--accent-glow), inset 0 0 10px rgba(13, 148, 136, 0.2)',
+              border: '1px solid rgba(13, 148, 136, 0.5)'
             }
           };
       }
@@ -1102,33 +1123,54 @@ const App: React.FC = () => {
     const widgetMode = new URLSearchParams(window.location.search).get('mode') || 'floating';
     const isTopBar = widgetMode === 'top-bar';
 
+    // Calculate stats for widget metrics
+    const monthlyStats = calculateStatsForInterval(startOfMonth(now), endOfMonth(now));
+
     // Handle Click-through for Top Bar
     useEffect(() => {
       if (isWidgetView && isTopBar) {
         if (isWidgetHovered) {
           window.electronAPI?.setIgnoreMouseEvents(false);
         } else {
+          // In Top Bar mode, we ignore mouse events to allow clicking "through" the transparent area
+          // but we keep 'forward' so we can still detect the mouse entering the hit area
           window.electronAPI?.setIgnoreMouseEvents(true, { forward: true });
         }
       }
     }, [isWidgetHovered, isTopBar, isWidgetView]);
 
+    // Fallback for Top Bar hover detection when ignoring mouse events
+    useEffect(() => {
+      if (!isWidgetView || !isTopBar) return;
+      
+      const handleMouseMove = (e: MouseEvent) => {
+        // If mouse is in the top 10px, trigger hover
+        if (e.clientY <= 10 && !isWidgetHovered) {
+          setIsWidgetHovered(true);
+        }
+      };
+      
+      window.addEventListener('mousemove', handleMouseMove);
+      return () => window.removeEventListener('mousemove', handleMouseMove);
+    }, [isWidgetView, isTopBar, isWidgetHovered]);
+
     return (
       <div 
-        onMouseEnter={() => setIsWidgetHovered(true)}
-        onMouseLeave={() => setIsWidgetHovered(false)}
         style={{ 
           width: '100vw', 
-          height: isTopBar ? '80px' : '100vh', // Full window height
+          height: isTopBar ? '80px' : '100vh', 
           position: 'fixed',
           top: 0,
           left: 0,
           zIndex: 9999,
-          pointerEvents: 'none' // Allow clicking through the empty space of the 80px window
+          pointerEvents: 'none',
+          overflow: 'hidden'
         }}>
         
         {/* Actual Widget Content */}
         <div 
+          onMouseEnter={() => setIsWidgetHovered(true)}
+          onMouseLeave={() => setIsWidgetHovered(false)}
           className={`fade-in widget-container ${isTopBar ? 'top-bar-widget' : ''}`}
           style={{ 
             width: isTopBar ? '100%' : '300px', 
@@ -1200,6 +1242,16 @@ const App: React.FC = () => {
               </div>
             </div>
 
+            {/* Monthly Progress / Missing Hours - only when hovered */}
+            {isWidgetHovered && settings.monthlyGoal > monthlyStats.earnings && (
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: isTopBar ? '100px' : '0', borderLeft: isTopBar ? `1px solid ${widgetConfig.accentColor || 'rgba(255,255,255,0.1)'}` : 'none', paddingLeft: isTopBar ? '20px' : '0' }}>
+                <div className="mono-font" style={{ fontSize: '0.45rem', color: widgetConfig.accentColor || 'var(--accent-color)', opacity: 0.8, letterSpacing: '1px' }}>FALTAN</div>
+                <div className="mono-font" style={{ fontSize: '0.9rem', fontWeight: 800, color: widgetConfig.accentColor || 'white' }}>
+                  {((settings.monthlyGoal - monthlyStats.earnings) / (settings.clients.find(c => c.id === settings.selectedClientId)?.hourlyRate || settings.clients[0].hourlyRate)).toFixed(1)} <span style={{ fontSize: '0.6rem' }}>HS</span>
+                </div>
+              </div>
+            )}
+
             {/* Quick Note Input - smaller on top bar */}
             <input 
               type="text" 
@@ -1248,10 +1300,13 @@ const App: React.FC = () => {
         
         {/* Invisible hit area to trigger expansion when mouse is near the top */}
         {isTopBar && (
-          <div style={{ 
-            position: 'absolute', top: 0, left: 0, width: '100%', height: '10px', 
-            background: 'transparent', pointerEvents: 'auto' 
-          }} />
+          <div 
+            onMouseEnter={() => setIsWidgetHovered(true)}
+            style={{ 
+              position: 'absolute', top: 0, left: 0, width: '100%', height: '15px', 
+              background: 'transparent', pointerEvents: 'auto', zIndex: 10000 
+            }} 
+          />
         )}
       </div>
     );
@@ -1594,6 +1649,14 @@ const App: React.FC = () => {
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>ACTUAL: </span>
                   <span style={{ fontWeight: 800 }}>${Math.floor(monthlyStats.earnings).toLocaleString()}</span>
                 </div>
+                {settings.monthlyGoal > monthlyStats.earnings && (
+                  <div style={{ textAlign: 'center', border: '1px dashed var(--accent-secondary)', padding: '2px 12px', borderRadius: '4px' }}>
+                    <span style={{ fontSize: '0.6rem', color: 'var(--accent-secondary)' }}>FALTAN: </span>
+                    <span style={{ fontWeight: 800, color: 'var(--accent-secondary)' }}>
+                      {((settings.monthlyGoal - monthlyStats.earnings) / (settings.clients.find(c => c.id === settings.selectedClientId)?.hourlyRate || settings.clients[0].hourlyRate)).toFixed(1)} HS
+                    </span>
+                  </div>
+                )}
                 <div>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>OBJETIVO: </span>
                   <span style={{ fontWeight: 800 }}>${settings.monthlyGoal.toLocaleString()}</span>
