@@ -15,7 +15,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.27';
+const APP_VERSION = '2.3.28';
 
 // --- TYPES ---
 declare global {
@@ -60,6 +60,7 @@ declare global {
       deepScanData: () => Promise<any[]>;
       importDataFromPath: (path: string) => Promise<{ success: boolean; error?: string }>;
       setIgnoreMouseEvents: (ignore: boolean, options?: { forward: boolean }) => void;
+      onMonitoringDataUpdate: (callback: (data: any) => void) => void;
     }
   }
 }
