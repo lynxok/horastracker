@@ -10,12 +10,12 @@ import {
 import {
   format, differenceInSeconds, startOfMonth, endOfMonth,
   startOfWeek, endOfWeek, startOfDay, endOfDay,
-  isWithinInterval, parseISO
+  isWithinInterval, parseISO, subMonths
 } from 'date-fns';
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.29';
+const APP_VERSION = '2.3.30';
 
 // --- TYPES ---
 declare global {
@@ -125,6 +125,20 @@ interface AppSettings {
   widgetOpacity: number;
   widgetMode?: 'floating' | 'top-bar';
 }
+
+const MONOTRIBUTO_CATEGORIES = [
+  { id: 'A', limit: 6450000 },
+  { id: 'B', limit: 9450000 },
+  { id: 'C', limit: 13250000 },
+  { id: 'D', limit: 16450000 },
+  { id: 'E', limit: 19350000 },
+  { id: 'F', limit: 24250000 },
+  { id: 'G', limit: 29000000 },
+  { id: 'H', limit: 44000000 }, // Límite para Servicios
+  { id: 'I', limit: 48500000 },
+  { id: 'J', limit: 56400000 },
+  { id: 'K', limit: 68000000 }  // Límite para Venta de Bienes
+];
 
 const DEFAULT_CLIENTS: Client[] = [
   {
@@ -486,6 +500,17 @@ const App: React.FC = () => {
   const dailyStats = useMemo(() => calculateStatsForInterval(startOfDay(now), endOfDay(now)), [sessions, now]);
   const weeklyStats = useMemo(() => calculateStatsForInterval(startOfWeek(now, { weekStartsOn: 1 }), endOfWeek(now, { weekStartsOn: 1 })), [sessions, now]);
   const monthlyStats = useMemo(() => calculateStatsForInterval(startOfMonth(now), endOfMonth(now)), [sessions, now]);
+  const twelveMonthStats = useMemo(() => calculateStatsForInterval(startOfMonth(subMonths(now, 11)), endOfMonth(now)), [sessions, now]);
+
+  const currentMonotributoCat = useMemo(() => {
+    return MONOTRIBUTO_CATEGORIES.find(cat => twelveMonthStats.earnings <= cat.limit) || MONOTRIBUTO_CATEGORIES[MONOTRIBUTO_CATEGORIES.length - 1];
+  }, [twelveMonthStats]);
+
+  const nextMonotributoCat = useMemo(() => {
+    const idx = MONOTRIBUTO_CATEGORIES.findIndex(cat => cat.id === currentMonotributoCat.id);
+    if (idx < MONOTRIBUTO_CATEGORIES.length - 1) return MONOTRIBUTO_CATEGORIES[idx + 1];
+    return null;
+  }, [currentMonotributoCat]);
   
   const allTimeBilled = useMemo(() => {
     // Solo suma facturas ACTIVAS - las anuladas se restan efectivamente al no contarse
@@ -1675,6 +1700,56 @@ const App: React.FC = () => {
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>OBJETIVO: </span>
                   <span style={{ fontWeight: 800 }}>${settings.monthlyGoal.toLocaleString()}</span>
                 </div>
+              </div>
+            </div>
+            
+            {/* --- PROYECCIÓN MONOTRIBUTO --- */}
+            <div className="premium-card" style={{ border: '1px solid var(--accent-color)', background: 'rgba(14, 165, 233, 0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.8rem', fontWeight: 800 }}>PROYECCIÓN CATEGORÍA MONOTRIBUTO</div>
+                  <div style={{ background: 'var(--accent-color)', color: '#000', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 900 }}>CAT {currentMonotributoCat.id}</div>
+                </div>
+                <div className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>ÚLTIMOS 12 MESES</div>
+              </div>
+
+              <div className="revenue-progress-container" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                <div 
+                  className="revenue-progress-bar" 
+                  style={{ 
+                    width: `${Math.min(100, (twelveMonthStats.earnings / currentMonotributoCat.limit) * 100)}%`,
+                    background: (twelveMonthStats.earnings / currentMonotributoCat.limit) > 0.9 ? 'var(--danger)' : 'var(--accent-color)',
+                    boxShadow: (twelveMonthStats.earnings / currentMonotributoCat.limit) > 0.9 ? '0 0 15px var(--danger-glow)' : '0 0 15px var(--accent-glow)'
+                  }}
+                ></div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }} className="mono-font">
+                <div>
+                   <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>FACTURACIÓN ACUMULADA: </span>
+                   <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>${Math.floor(twelveMonthStats.earnings).toLocaleString()}</span>
+                </div>
+                
+                {nextMonotributoCat && (
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>PRÓXIMA CAT ({nextMonotributoCat.id}) DESDE: </span>
+                    <span style={{ fontWeight: 800 }}>${(currentMonotributoCat.limit + 1).toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--surface-border)', borderRadius: '4px' }}>
+                 <div className="mono-font" style={{ fontSize: '0.7rem', display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>SALDO PARA MANTENER CATEGORÍA:</span>
+                    <span style={{ color: (currentMonotributoCat.limit - twelveMonthStats.earnings) < 500000 ? 'var(--danger)' : 'var(--success)', fontWeight: 800 }}>
+                      ${Math.floor(currentMonotributoCat.limit - twelveMonthStats.earnings).toLocaleString()}
+                    </span>
+                 </div>
+                 {(currentMonotributoCat.limit - twelveMonthStats.earnings) < 500000 && (
+                   <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--danger)', marginTop: '8px', fontWeight: 800 }}>
+                     ⚠️ ATENCIÓN: ESTÁS CERCA DEL LÍMITE DE RECATEGORIZACIÓN
+                   </div>
+                 )}
               </div>
             </div>
 
