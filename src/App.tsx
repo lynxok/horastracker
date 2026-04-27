@@ -15,7 +15,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.28';
+const APP_VERSION = '2.3.29';
 
 // --- TYPES ---
 declare global {
@@ -1170,13 +1170,11 @@ const App: React.FC = () => {
         
         {/* Actual Widget Content */}
         <div 
-          onMouseEnter={() => setIsWidgetHovered(true)}
-          onMouseLeave={() => setIsWidgetHovered(false)}
           className={`fade-in widget-container ${isTopBar ? 'top-bar-widget' : ''}`}
           style={{ 
             width: isTopBar ? '100%' : '300px', 
-            height: isTopBar ? '50px' : '100px', 
-            padding: '0 24px', 
+            height: isTopBar ? '60px' : '100px', 
+            padding: isTopBar ? '0 40px' : '0 24px', 
             display: 'flex', 
             alignItems: 'center', 
             gap: '12px', 
@@ -1190,20 +1188,35 @@ const App: React.FC = () => {
             left: 0,
             overflow: 'hidden',
             borderRadius: isTopBar ? '0' : widgetConfig.borderRadius,
-            transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
-            opacity: isTopBar ? (isWidgetHovered ? 1 : 0.6) : (isWidgetHovered ? 1 : (settings.widgetOpacity || 0.4)),
-            transform: isTopBar && !isWidgetHovered ? 'translateY(-45px)' : 'translateY(0)',
+            transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+            opacity: isTopBar ? (isWidgetHovered ? 1 : 0.4) : (isWidgetHovered ? 1 : (settings.widgetOpacity || 0.4)),
+            transform: isTopBar && !isWidgetHovered ? 'translateY(-56px)' : 'translateY(0)',
             boxShadow: isTopBar && isWidgetHovered ? `0 4px 30px ${widgetConfig.accentColor || 'var(--accent-glow)'}` : 'none',
-            pointerEvents: 'auto', // Re-enable pointer events for the bar itself
+            pointerEvents: 'auto', 
             ...(!isTopBar ? widgetConfig.customStyle : {})
           }}>
           
-          {/* Peeking Indicator (only when hidden) */}
+          {/* HIT AREA & SENSOR (only for Top Bar) */}
+          {isTopBar && (
+            <div 
+              onMouseEnter={() => setIsWidgetHovered(true)}
+              onMouseLeave={() => setIsWidgetHovered(false)}
+              style={{ 
+                position: 'fixed', top: 0, left: 0, right: 0, 
+                height: isWidgetHovered ? '80px' : '15px', 
+                zIndex: 10001, 
+                pointerEvents: 'auto',
+                background: 'transparent'
+              }} 
+            />
+          )}
+
+          {/* Peeking Indicator (only when collapsed) */}
           {isTopBar && !isWidgetHovered && (
             <div style={{ 
               position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-              width: '60px', height: '3px', background: widgetConfig.accentColor || 'var(--accent-color)',
-              borderRadius: '3px', opacity: 0.8, boxShadow: `0 0 10px ${widgetConfig.accentColor || 'var(--accent-color)'}`
+              width: '80px', height: '4px', background: widgetConfig.accentColor || 'var(--accent-color)',
+              borderRadius: '0 0 4px 4px', opacity: 1, boxShadow: `0 0 15px ${widgetConfig.accentColor || 'var(--accent-color)'}`
             }} />
           )}
 
