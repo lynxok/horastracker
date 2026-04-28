@@ -9,14 +9,14 @@ import {
   Plus, FileText
 } from 'lucide-react';
 import {
-  format, differenceInSeconds, startOfMonth, endOfMonth,
+  format, differenceInSeconds, differenceInDays, startOfMonth, endOfMonth,
   startOfWeek, endOfWeek, startOfDay, endOfDay,
   isWithinInterval, parseISO, subMonths
 } from 'date-fns';
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.32';
+const APP_VERSION = '2.3.33';
 
 // --- TYPES ---
 declare global {
@@ -120,6 +120,7 @@ interface AppSettings {
     certPath: string;
     keyPath: string;
     productionMode: boolean;
+    monotributoStartDate?: string;
   };
   invoicePath?: string;
   theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean' | 'harry-potter' | 'marvel' | 'loki' | 'winamp';
@@ -525,9 +526,28 @@ const App: React.FC = () => {
       earnings: baseStats.earnings + manualBilledLast12
     };
   }, [sessions, billedMonths, now]);
+  const annualizedMonotributoStats = useMemo(() => {
+    let earnings = twelveMonthStats.earnings;
+    let isAnnualized = false;
+    let daysActive = 365;
+
+    if (settings.arcaInfo?.monotributoStartDate) {
+      const startDate = parseISO(settings.arcaInfo.monotributoStartDate);
+      daysActive = differenceInDays(now, startDate);
+      
+      // If enrolled less than a year (e.g. < 365 days) and more than 0 days
+      if (daysActive > 0 && daysActive < 365) {
+        earnings = (earnings / daysActive) * 365;
+        isAnnualized = true;
+      }
+    }
+
+    return { earnings, isAnnualized, daysActive };
+  }, [twelveMonthStats, settings.arcaInfo?.monotributoStartDate, now]);
+
   const currentMonotributoCat = useMemo(() => {
-    return MONOTRIBUTO_CATEGORIES.find(cat => twelveMonthStats.earnings <= cat.limit) || MONOTRIBUTO_CATEGORIES[MONOTRIBUTO_CATEGORIES.length - 1];
-  }, [twelveMonthStats]);
+    return MONOTRIBUTO_CATEGORIES.find(cat => annualizedMonotributoStats.earnings <= cat.limit) || MONOTRIBUTO_CATEGORIES[MONOTRIBUTO_CATEGORIES.length - 1];
+  }, [annualizedMonotributoStats]);
 
   const nextMonotributoCat = useMemo(() => {
     const idx = MONOTRIBUTO_CATEGORIES.findIndex(cat => cat.id === currentMonotributoCat.id);
@@ -1772,6 +1792,11 @@ const App: React.FC = () => {
                 <div>
                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>FACTURACIÓN ACUMULADA: </span>
                    <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>${Math.floor(twelveMonthStats.earnings).toLocaleString()}</span>
+                   {annualizedMonotributoStats.isAnnualized && (
+                     <div style={{ fontSize: '0.65rem', color: 'var(--accent-secondary)', marginTop: '4px', fontWeight: 800 }}>
+                       PROYECCIÓN ANUALIZADA: ${Math.floor(annualizedMonotributoStats.earnings).toLocaleString()}
+                     </div>
+                   )}
                 </div>
                 
                 {nextMonotributoCat && (
@@ -1785,11 +1810,11 @@ const App: React.FC = () => {
               <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--surface-border)', borderRadius: '4px' }}>
                  <div className="mono-font" style={{ fontSize: '0.7rem', display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>SALDO PARA MANTENER CATEGORÍA:</span>
-                    <span style={{ color: (currentMonotributoCat.limit - twelveMonthStats.earnings) < 500000 ? 'var(--danger)' : 'var(--success)', fontWeight: 800 }}>
-                      ${Math.floor(currentMonotributoCat.limit - twelveMonthStats.earnings).toLocaleString()}
+                    <span style={{ color: (currentMonotributoCat.limit - annualizedMonotributoStats.earnings) < 500000 ? 'var(--danger)' : 'var(--success)', fontWeight: 800 }}>
+                      ${Math.floor(currentMonotributoCat.limit - annualizedMonotributoStats.earnings).toLocaleString()}
                     </span>
                  </div>
-                 {(currentMonotributoCat.limit - twelveMonthStats.earnings) < 500000 && (
+                 {(currentMonotributoCat.limit - annualizedMonotributoStats.earnings) < 500000 && (
                    <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--danger)', marginTop: '8px', fontWeight: 800 }}>
                      ⚠️ ATENCIÓN: ESTÁS CERCA DEL LÍMITE DE RECATEGORIZACIÓN
                    </div>
@@ -2158,6 +2183,15 @@ const App: React.FC = () => {
                   <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>PUNTO DE VENTA HAB.</label>
                   <input type="text" value={settings.arcaInfo.puntoVenta} onChange={e => updateArcaSetting('puntoVenta', e.target.value)} placeholder="Ej: 2"
                     style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>FECHA DE INSCRIPCIÓN AL MONOTRIBUTO</label>
+                <input type="date" value={settings.arcaInfo.monotributoStartDate || ''} onChange={e => updateArcaSetting('monotributoStartDate', e.target.value)} 
+                  style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
+                <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  Usado para anualizar tus ingresos en caso de que lleves menos de 12 meses inscripto.
                 </div>
               </div>
 
