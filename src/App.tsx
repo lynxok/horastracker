@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.33';
+const APP_VERSION = '2.3.34';
 
 // --- TYPES ---
 declare global {
@@ -535,8 +535,8 @@ const App: React.FC = () => {
       const startDate = parseISO(settings.arcaInfo.monotributoStartDate);
       daysActive = differenceInDays(now, startDate);
       
-      // If enrolled less than a year (e.g. < 365 days) and more than 0 days
-      if (daysActive > 0 && daysActive < 365) {
+      // If enrolled less than a year (e.g. < 365 days) and more than 30 days (for stability)
+      if (daysActive >= 30 && daysActive < 365) {
         earnings = (earnings / daysActive) * 365;
         isAnnualized = true;
       }
@@ -1789,12 +1789,23 @@ const App: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }} className="mono-font">
-                <div>
-                   <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>FACTURACIÓN ACUMULADA: </span>
-                   <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>${Math.floor(twelveMonthStats.earnings).toLocaleString()}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                     <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>TOTAL FACTURADO (12M): </span>
+                     <span style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--success)' }}>${Math.floor(twelveMonthStats.earnings).toLocaleString()}</span>
+                   </div>
+                   
                    {annualizedMonotributoStats.isAnnualized && (
-                     <div style={{ fontSize: '0.65rem', color: 'var(--accent-secondary)', marginTop: '4px', fontWeight: 800 }}>
-                       PROYECCIÓN ANUALIZADA: ${Math.floor(annualizedMonotributoStats.earnings).toLocaleString()}
+                     <div style={{ padding: '8px 12px', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.2)', borderRadius: '4px', marginTop: '8px' }}>
+                       <div style={{ fontSize: '0.65rem', color: 'var(--warning)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                         <Activity size={12} /> PROYECCIÓN ANUALIZADA (ARCA):
+                       </div>
+                       <div style={{ fontSize: '1.1rem', color: 'white', fontWeight: 900, marginTop: '2px' }}>
+                         ${Math.floor(annualizedMonotributoStats.earnings).toLocaleString()}
+                       </div>
+                       <div style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                         Basado en {annualizedMonotributoStats.daysActive} días de actividad.
+                       </div>
                      </div>
                    )}
                 </div>
@@ -1858,15 +1869,25 @@ const App: React.FC = () => {
                           <div className="mono-font" style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--success)' }}>${bm.totalAmount.toLocaleString()}</div>
                           <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>{bm.totalHours.toFixed(1)} HS</div>
                         </div>
-                        {bm.filePath && (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {bm.filePath && (
+                            <button 
+                              onClick={() => window.electronAPI?.openFile(bm.filePath!)}
+                              className="btn-secondary" 
+                              style={{ fontSize: '0.6rem', padding: '8px 12px' }}
+                            >
+                              VER PDF
+                            </button>
+                          )}
                           <button 
-                            onClick={() => window.electronAPI?.openFile(bm.filePath!)}
+                            onClick={() => handleDeleteRecord(bm)}
                             className="btn-secondary" 
-                            style={{ fontSize: '0.6rem', padding: '8px 12px' }}
+                            style={{ padding: '8px', color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                            title="Eliminar registro"
                           >
-                            VER PDF
+                            <Trash2 size={14} />
                           </button>
-                        )}
+                        </div>
                       </div>
                     </div>
                   ))
