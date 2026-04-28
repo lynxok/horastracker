@@ -16,14 +16,11 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.35';
+const APP_VERSION = '2.3.36';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
   val.toLocaleString(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const formatCompact = (val: number) => 
-  val.toLocaleString(LOCALE, { maximumFractionDigits: 0 });
 declare global {
   interface Window {
     electronAPI?: {
