@@ -5,7 +5,8 @@ import {
   Play, Square, History, Settings as SettingsIcon,
   Trash2, Shield, Activity, X,
   Minus, Maximize2, Pencil, BarChart3, Clock,
-  Lock, Bird, Zap, Terminal, Hourglass, Cpu, GripVertical, Database, Search
+  Lock, Bird, Zap, Terminal, Hourglass, Cpu, GripVertical, Database, Search,
+  Plus, FileText
 } from 'lucide-react';
 import {
   format, differenceInSeconds, startOfMonth, endOfMonth,
@@ -15,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.30';
+const APP_VERSION = '2.3.31';
 
 // --- TYPES ---
 declare global {
@@ -239,6 +240,15 @@ const App: React.FC = () => {
   
   const [tempClient, setTempClient] = useState<Client>({
     id: '', name: '', cuit: '', domicilio: '', condicionIva: 'IVA Responsable Inscripto', hourlyRate: 5000, workIp: ''
+  });
+
+  const [showManualInvoiceModal, setShowManualInvoiceModal] = useState(false);
+  const [manualInvoice, setManualInvoice] = useState({
+    date: format(new Date(), 'yyyy-MM-dd'),
+    clientName: '',
+    invoiceNumber: '',
+    totalAmount: '',
+    totalHours: ''
   });
 
   // Initialize
@@ -500,8 +510,21 @@ const App: React.FC = () => {
   const dailyStats = useMemo(() => calculateStatsForInterval(startOfDay(now), endOfDay(now)), [sessions, now]);
   const weeklyStats = useMemo(() => calculateStatsForInterval(startOfWeek(now, { weekStartsOn: 1 }), endOfWeek(now, { weekStartsOn: 1 })), [sessions, now]);
   const monthlyStats = useMemo(() => calculateStatsForInterval(startOfMonth(now), endOfMonth(now)), [sessions, now]);
-  const twelveMonthStats = useMemo(() => calculateStatsForInterval(startOfMonth(subMonths(now, 11)), endOfMonth(now)), [sessions, now]);
+  
+  const twelveMonthStats = useMemo(() => {
+    const twelveMonthsAgo = startOfMonth(subMonths(now, 11));
+    const baseStats = calculateStatsForInterval(twelveMonthsAgo, endOfMonth(now));
+    
+    // Include manual historical invoices (those with no sessions linked) in the ARCA calculation
+    const manualBilledLast12 = billedMonths
+      .filter(m => m.status === 'ACTIVE' && parseISO(m.date) >= twelveMonthsAgo && (!m.sessionsIds || m.sessionsIds.length === 0))
+      .reduce((sum, m) => sum + m.totalAmount, 0);
 
+    return {
+      hours: baseStats.hours,
+      earnings: baseStats.earnings + manualBilledLast12
+    };
+  }, [sessions, billedMonths, now]);
   const currentMonotributoCat = useMemo(() => {
     return MONOTRIBUTO_CATEGORIES.find(cat => twelveMonthStats.earnings <= cat.limit) || MONOTRIBUTO_CATEGORIES[MONOTRIBUTO_CATEGORIES.length - 1];
   }, [twelveMonthStats]);
@@ -1047,6 +1070,27 @@ const App: React.FC = () => {
       </div>
     );
   }
+
+  const handleSaveManualInvoice = async () => {
+    if (!manualInvoice.clientName || !manualInvoice.totalAmount || !manualInvoice.date) return;
+    
+    const newInvoice: BilledMonth = {
+      id: crypto.randomUUID(),
+      date: new Date(manualInvoice.date).toISOString(),
+      month: manualInvoice.date.substring(0, 7), // YYYY-MM
+      totalHours: parseFloat(manualInvoice.totalHours) || 0,
+      rate: 0,
+      totalAmount: parseFloat(manualInvoice.totalAmount),
+      status: 'ACTIVE',
+      invoiceNumber: manualInvoice.invoiceNumber ? parseInt(manualInvoice.invoiceNumber) : undefined,
+      sessionsIds: [], // Empty to denote manual entry
+      clientName: manualInvoice.clientName
+    };
+
+    const newBilled = [...billedMonths, newInvoice];
+    setBilledMonths(newBilled);
+    setShowManualInvoiceModal(false);
+  };
 
   if (isWidgetView) {
     const getThemeWidgetConfig = () => {
@@ -1754,9 +1798,18 @@ const App: React.FC = () => {
             </div>
 
             <div className="premium-card">
-              <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.8rem', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Lock size={14} /> HISTORIAL DE COMPROBANTES EMITIDOS
-              </h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                  <Lock size={14} /> HISTORIAL DE COMPROBANTES EMITIDOS
+                </h3>
+                <button 
+                  onClick={() => setShowManualInvoiceModal(true)} 
+                  className="btn-secondary" 
+                  style={{ fontSize: '0.7rem', padding: '6px 12px' }}
+                >
+                  <Plus size={12} /> AÑADIR HISTÓRICO
+                </button>
+              </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {billedMonths.length === 0 ? (
@@ -2389,7 +2442,48 @@ const App: React.FC = () => {
              </div>
           </div>
         )}
-      </div>
+        {/* --- MANUAL INVOICE MODAL --- */}
+      {showManualInvoiceModal && (
+        <div className="modal-overlay" onClick={() => setShowManualInvoiceModal(false)}>
+          <div className="modal-content premium-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <h2 className="mono-font" style={{ color: 'var(--accent-color)', marginBottom: '20px', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <FileText size={20} /> AÑADIR COMPROBANTE HISTÓRICO
+            </h2>
+            <p className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+              Estos comprobantes se sumarán al acumulado de 12 meses para el cálculo del Monotributo, pero no tendrán sesiones ni PDF asociados en LYNX.
+            </p>
+            
+            <div className="settings-group">
+              <label>Fecha de Emisión</label>
+              <input type="date" value={manualInvoice.date} onChange={e => setManualInvoice({ ...manualInvoice, date: e.target.value })} />
+              
+              <label>Cliente (Razón Social)</label>
+              <input type="text" placeholder="Ej. ACME Corp" value={manualInvoice.clientName} onChange={e => setManualInvoice({ ...manualInvoice, clientName: e.target.value })} />
+              
+              <label>Número de Comprobante (Opcional)</label>
+              <input type="number" placeholder="Ej. 12" value={manualInvoice.invoiceNumber} onChange={e => setManualInvoice({ ...manualInvoice, invoiceNumber: e.target.value })} />
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label>Monto Total ($)</label>
+                  <input type="number" placeholder="Ej. 150000" value={manualInvoice.totalAmount} onChange={e => setManualInvoice({ ...manualInvoice, totalAmount: e.target.value })} />
+                </div>
+                <div>
+                  <label>Horas (Opcional)</label>
+                  <input type="number" step="0.5" placeholder="Ej. 25.5" value={manualInvoice.totalHours} onChange={e => setManualInvoice({ ...manualInvoice, totalHours: e.target.value })} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '30px' }}>
+              <button className="btn-primary" onClick={handleSaveManualInvoice} style={{ flex: 1, justifyContent: 'center' }}>GUARDAR COMPROBANTE</button>
+              <button className="btn-secondary" onClick={() => setShowManualInvoiceModal(false)}>CANCELAR</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
   );
 };
 
