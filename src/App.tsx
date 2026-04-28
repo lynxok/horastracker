@@ -16,9 +16,14 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.34';
+const APP_VERSION = '2.3.35';
+const LOCALE = 'es-AR';
 
-// --- TYPES ---
+const formatCurrency = (val: number) => 
+  val.toLocaleString(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const formatCompact = (val: number) => 
+  val.toLocaleString(LOCALE, { maximumFractionDigits: 0 });
 declare global {
   interface Window {
     electronAPI?: {
@@ -866,7 +871,7 @@ const App: React.FC = () => {
       return;
     }
 
-    if (!confirm(`¿Emitir factura oficial para ${client.name} por $${Math.floor(totalAmount).toLocaleString()}?`)) return;
+    if (!confirm(`¿Emitir factura oficial para ${client.name} por $${formatCurrency(totalAmount)}?`)) return;
 
     setIsInvoicing(true);
     const res = await window.electronAPI?.generateArcaInvoice({
@@ -1338,7 +1343,7 @@ const App: React.FC = () => {
               
               <div className="mono-font" style={{ fontSize: isTopBar ? '1.1rem' : '1.2rem', fontWeight: 800, letterSpacing: '-0.5px', color: activeSessionId ? (widgetConfig.labelColor || 'white') : 'rgba(128,128,128,0.5)', marginTop: '-2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {isWidgetHovered && activeSessionId ? (
-                  <span style={{ color: 'var(--success)' }}>${Math.floor(earnings).toLocaleString()}</span>
+                  <span style={{ color: 'var(--success)' }}>${formatCurrency(earnings)}</span>
                 ) : (
                   activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"
                 )}
@@ -1631,7 +1636,7 @@ const App: React.FC = () => {
                               <span className="mono-font" style={{ fontWeight: 800, fontSize: '1rem' }}>{formatDuration(differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600)}</span>
                             </div>
                             <div style={{ color: 'var(--success)', fontWeight: 700, minWidth: '100px', textAlign: 'right' }} className="mono-font">
-                              +${Math.floor((differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600) * s.rate).toLocaleString()}
+                              +${formatCurrency((differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600) * s.rate)}
                             </div>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button onClick={() => openManualModal(s)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', padding: '4px', opacity: 0.5 }} title="Editar"><Pencil size={16} /></button>
@@ -1708,28 +1713,28 @@ const App: React.FC = () => {
               <div className="premium-card">
                  <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>HOY / DIARIO</div>
                  <div style={{ fontSize: '1.5rem', fontWeight: 800 }} className="mono-font">{dailyStats.hours.toFixed(1)} <span style={{fontSize: '0.8rem'}}>HS</span></div>
-                 <div style={{ fontSize: '0.8rem', color: 'var(--success)' }} className="mono-font">${Math.floor(dailyStats.earnings).toLocaleString()}</div>
+                 <div style={{ fontSize: '0.8rem', color: 'var(--success)' }} className="mono-font">${formatCurrency(dailyStats.earnings)}</div>
               </div>
               <div className="premium-card">
                  <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>ESTA SEMANA</div>
                  <div style={{ fontSize: '1.5rem', fontWeight: 800 }} className="mono-font">{weeklyStats.hours.toFixed(1)} <span style={{fontSize: '0.8rem'}}>HS</span></div>
-                 <div style={{ fontSize: '0.8rem', color: 'var(--success)' }} className="mono-font">${Math.floor(weeklyStats.earnings).toLocaleString()}</div>
+                 <div style={{ fontSize: '0.8rem', color: 'var(--success)' }} className="mono-font">${formatCurrency(weeklyStats.earnings)}</div>
               </div>
               <div className="premium-card">
                  <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>ESTE MES</div>
                  <div style={{ fontSize: '1.5rem', fontWeight: 800 }} className="mono-font">{monthlyStats.hours.toFixed(1)} <span style={{fontSize: '0.8rem'}}>HS</span></div>
-                 <div style={{ fontSize: '0.8rem', color: 'var(--success)' }} className="mono-font">${Math.floor(monthlyStats.earnings).toLocaleString()}</div>
+                 <div style={{ fontSize: '0.8rem', color: 'var(--success)' }} className="mono-font">${formatCurrency(monthlyStats.earnings)}</div>
               </div>
               <div className="premium-card" style={{ borderLeft: '3px solid var(--accent-secondary)' }}>
                  <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>PROYECCIÓN CIERRE</div>
                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-secondary)' }} className="mono-font">
-                   ${Math.floor((monthlyStats.earnings / (new Date().getDate())) * (endOfMonth(new Date()).getDate())).toLocaleString()}
+                   ${formatCurrency((monthlyStats.earnings / (new Date().getDate())) * (endOfMonth(new Date()).getDate()))}
                  </div>
               </div>
               <div className="premium-card" style={{ borderLeft: '3px solid var(--success)' }}>
                  <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>TOTAL COBRADO</div>
                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--success)' }} className="mono-font">
-                   ${Math.floor(allTimeBilled).toLocaleString()}
+                   ${formatCurrency(allTimeBilled)}
                  </div>
               </div>
             </div>
@@ -1750,19 +1755,19 @@ const App: React.FC = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }} className="mono-font">
                 <div>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>ACTUAL: </span>
-                  <span style={{ fontWeight: 800 }}>${Math.floor(monthlyStats.earnings).toLocaleString()}</span>
+                  <span style={{ fontWeight: 800 }}>${formatCurrency(monthlyStats.earnings)}</span>
                 </div>
                 {settings.monthlyGoal > monthlyStats.earnings && (
                   <div style={{ textAlign: 'center', border: '1px dashed var(--accent-secondary)', padding: '2px 12px', borderRadius: '4px' }}>
                     <span style={{ fontSize: '0.6rem', color: 'var(--accent-secondary)' }}>FALTAN: </span>
                     <span style={{ fontWeight: 800, color: 'var(--accent-secondary)' }}>
-                      {((settings.monthlyGoal - monthlyStats.earnings) / (settings.clients.find(c => c.id === settings.selectedClientId)?.hourlyRate || settings.clients[0].hourlyRate)).toFixed(1)} HS
+                      {((settings.monthlyGoal - monthlyStats.earnings) / (settings.clients.find(c => c.id === settings.selectedClientId)?.hourlyRate || settings.clients[0].hourlyRate)).toLocaleString('es-AR', { maximumFractionDigits: 1 })} HS
                     </span>
                   </div>
                 )}
                 <div>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>OBJETIVO: </span>
-                  <span style={{ fontWeight: 800 }}>${settings.monthlyGoal.toLocaleString()}</span>
+                  <span style={{ fontWeight: 800 }}>${formatCurrency(settings.monthlyGoal)}</span>
                 </div>
               </div>
             </div>
@@ -1792,7 +1797,7 @@ const App: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                      <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>TOTAL FACTURADO (12M): </span>
-                     <span style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--success)' }}>${Math.floor(twelveMonthStats.earnings).toLocaleString()}</span>
+                     <span style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--success)' }}>${formatCurrency(twelveMonthStats.earnings)}</span>
                    </div>
                    
                    {annualizedMonotributoStats.isAnnualized && (
@@ -1801,7 +1806,7 @@ const App: React.FC = () => {
                          <Activity size={12} /> PROYECCIÓN ANUALIZADA (ARCA):
                        </div>
                        <div style={{ fontSize: '1.1rem', color: 'white', fontWeight: 900, marginTop: '2px' }}>
-                         ${Math.floor(annualizedMonotributoStats.earnings).toLocaleString()}
+                         ${formatCurrency(annualizedMonotributoStats.earnings)}
                        </div>
                        <div style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                          Basado en {annualizedMonotributoStats.daysActive} días de actividad.
@@ -1813,7 +1818,7 @@ const App: React.FC = () => {
                 {nextMonotributoCat && (
                   <div style={{ textAlign: 'right' }}>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>PRÓXIMA CAT ({nextMonotributoCat.id}) DESDE: </span>
-                    <span style={{ fontWeight: 800 }}>${(currentMonotributoCat.limit + 1).toLocaleString()}</span>
+                    <span style={{ fontWeight: 800 }}>${formatCurrency(currentMonotributoCat.limit + 1)}</span>
                   </div>
                 )}
               </div>
@@ -1822,7 +1827,7 @@ const App: React.FC = () => {
                  <div className="mono-font" style={{ fontSize: '0.7rem', display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>SALDO PARA MANTENER CATEGORÍA:</span>
                     <span style={{ color: (currentMonotributoCat.limit - annualizedMonotributoStats.earnings) < 500000 ? 'var(--danger)' : 'var(--success)', fontWeight: 800 }}>
-                      ${Math.floor(currentMonotributoCat.limit - annualizedMonotributoStats.earnings).toLocaleString()}
+                      ${formatCurrency(currentMonotributoCat.limit - annualizedMonotributoStats.earnings)}
                     </span>
                  </div>
                  {(currentMonotributoCat.limit - annualizedMonotributoStats.earnings) < 500000 && (
@@ -1866,8 +1871,8 @@ const App: React.FC = () => {
                       </div>
                       <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
                         <div style={{ textAlign: 'right' }}>
-                          <div className="mono-font" style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--success)' }}>${bm.totalAmount.toLocaleString()}</div>
-                          <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>{bm.totalHours.toFixed(1)} HS</div>
+                          <div className="mono-font" style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--success)' }}>${formatCurrency(bm.totalAmount)}</div>
+                          <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>{bm.totalHours.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} HS</div>
                         </div>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           {bm.filePath && (
@@ -1922,8 +1927,8 @@ const App: React.FC = () => {
                            ></div>
                          </div>
                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }} className="mono-font">
-                           <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>LIQUIDADO: ${Math.floor(stat.total).toLocaleString()}</span>
-                           <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>OBJETIVO: ${stat.goal.toLocaleString()}</span>
+                           <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>LIQUIDADO: ${formatCurrency(stat.total)}</span>
+                           <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>OBJETIVO: ${formatCurrency(stat.goal)}</span>
                          </div>
                        </div>
                      );
@@ -1947,7 +1952,7 @@ const App: React.FC = () => {
                          </div>
                        </div>
                        <div className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 800 }}>
-                         ${Math.floor(m.totalAmount).toLocaleString()}
+                         ${formatCurrency(m.totalAmount)}
                        </div>
                      </div>
                      
@@ -2143,7 +2148,7 @@ const App: React.FC = () => {
                           <div>
                             <div className="mono-font" style={{ fontSize: '0.75rem', fontWeight: 800 }}>Carpeta: {file.folderName}</div>
                             <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>
-                              SESIONES: {file.sessions} | FACTURAS: {file.months} | ÚLTIMO USO: {new Date(file.mtime).toLocaleString()}
+                              SESIONES: {file.sessions} | FACTURAS: {file.months} | ULTIMO USO: {new Date(file.mtime).toLocaleString(LOCALE)}
                             </div>
                           </div>
                           <button 
