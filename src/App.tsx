@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.31';
+const APP_VERSION = '2.3.32';
 
 // --- TYPES ---
 declare global {
@@ -2453,24 +2453,30 @@ const App: React.FC = () => {
               Estos comprobantes se sumarán al acumulado de 12 meses para el cálculo del Monotributo, pero no tendrán sesiones ni PDF asociados en LYNX.
             </p>
             
-            <div className="settings-group">
-              <label>Fecha de Emisión</label>
-              <input type="date" value={manualInvoice.date} onChange={e => setManualInvoice({ ...manualInvoice, date: e.target.value })} />
+            <div className="settings-group" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem' }}>Fecha de Emisión</label>
+                <input type="date" style={{ width: '100%' }} value={manualInvoice.date} onChange={e => setManualInvoice({ ...manualInvoice, date: e.target.value })} />
+              </div>
               
-              <label>Cliente (Razón Social)</label>
-              <input type="text" placeholder="Ej. ACME Corp" value={manualInvoice.clientName} onChange={e => setManualInvoice({ ...manualInvoice, clientName: e.target.value })} />
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem' }}>Cliente (Razón Social)</label>
+                <input type="text" style={{ width: '100%' }} placeholder="Ej. ACME Corp" value={manualInvoice.clientName} onChange={e => setManualInvoice({ ...manualInvoice, clientName: e.target.value })} />
+              </div>
               
-              <label>Número de Comprobante (Opcional)</label>
-              <input type="number" placeholder="Ej. 12" value={manualInvoice.invoiceNumber} onChange={e => setManualInvoice({ ...manualInvoice, invoiceNumber: e.target.value })} />
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem' }}>Número de Comprobante (Opcional)</label>
+                <input type="number" style={{ width: '100%' }} placeholder="Ej. 12" value={manualInvoice.invoiceNumber} onChange={e => setManualInvoice({ ...manualInvoice, invoiceNumber: e.target.value })} />
+              </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
-                  <label>Monto Total ($)</label>
-                  <input type="number" placeholder="Ej. 150000" value={manualInvoice.totalAmount} onChange={e => setManualInvoice({ ...manualInvoice, totalAmount: e.target.value })} />
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem' }}>Monto Total ($)</label>
+                  <input type="number" style={{ width: '100%' }} placeholder="Ej. 150000" value={manualInvoice.totalAmount} onChange={e => setManualInvoice({ ...manualInvoice, totalAmount: e.target.value })} />
                 </div>
                 <div>
-                  <label>Horas (Opcional)</label>
-                  <input type="number" step="0.5" placeholder="Ej. 25.5" value={manualInvoice.totalHours} onChange={e => setManualInvoice({ ...manualInvoice, totalHours: e.target.value })} />
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem' }}>Horas (Opcional)</label>
+                  <input type="number" style={{ width: '100%' }} step="0.5" placeholder="Ej. 25.5" value={manualInvoice.totalHours} onChange={e => setManualInvoice({ ...manualInvoice, totalHours: e.target.value })} />
                 </div>
               </div>
             </div>
