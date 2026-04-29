@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.36';
+const APP_VERSION = '2.3.45';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -132,6 +132,7 @@ interface AppSettings {
   invoicePath?: string;
   theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean' | 'harry-potter' | 'marvel' | 'loki' | 'winamp';
   widgetOpacity: number;
+  widgetMode?: 'floating' | 'top-bar';
   widgetEnabled: boolean;
   monotributoCategories: { id: string; limit: number }[];
 }
@@ -175,7 +176,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   widgetMode: 'floating',
   widgetEnabled: true,
   monotributoCategories: INITIAL_MONOTRIBUTO_CATEGORIES
-};
 };
 
 import { useThematicSounds } from './hooks/useThematicSounds';
