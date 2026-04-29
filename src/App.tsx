@@ -132,11 +132,11 @@ interface AppSettings {
   invoicePath?: string;
   theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean' | 'harry-potter' | 'marvel' | 'loki' | 'winamp';
   widgetOpacity: number;
-  widgetMode?: 'floating' | 'top-bar';
   widgetEnabled: boolean;
+  monotributoCategories: { id: string; limit: number }[];
 }
 
-const MONOTRIBUTO_CATEGORIES = [
+const INITIAL_MONOTRIBUTO_CATEGORIES = [
   { id: 'A', limit: 6450000 },
   { id: 'B', limit: 9450000 },
   { id: 'C', limit: 13250000 },
@@ -173,7 +173,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   theme: 'cyberpunk',
   widgetOpacity: 0.8,
   widgetMode: 'floating',
-  widgetEnabled: true
+  widgetEnabled: true,
+  monotributoCategories: INITIAL_MONOTRIBUTO_CATEGORIES
+};
 };
 
 import { useThematicSounds } from './hooks/useThematicSounds';
@@ -249,6 +251,7 @@ const App: React.FC = () => {
   const [showLogsModal, setShowLogsModal] = useState(false);
   const [arcaDetailedError, setArcaDetailedError] = useState('');
   const [editClientId, setEditClientId] = useState<string | null>(null);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   
   const [tempClient, setTempClient] = useState<Client>({
     id: '', name: '', cuit: '', domicilio: '', condicionIva: 'IVA Responsable Inscripto', hourlyRate: 5000, workIp: ''
@@ -610,14 +613,14 @@ const App: React.FC = () => {
 
   const currentMonotributoCat = useMemo(() => {
     const userCatId = settings.arcaInfo?.monotributoCategory || 'A';
-    return MONOTRIBUTO_CATEGORIES.find(cat => cat.id === userCatId) || MONOTRIBUTO_CATEGORIES[0];
-  }, [settings.arcaInfo?.monotributoCategory]);
+    return settings.monotributoCategories.find(cat => cat.id === userCatId) || settings.monotributoCategories[0];
+  }, [settings.arcaInfo?.monotributoCategory, settings.monotributoCategories]);
 
   const nextMonotributoCat = useMemo(() => {
-    const idx = MONOTRIBUTO_CATEGORIES.findIndex(cat => cat.id === currentMonotributoCat.id);
-    if (idx < MONOTRIBUTO_CATEGORIES.length - 1) return MONOTRIBUTO_CATEGORIES[idx + 1];
+    const idx = settings.monotributoCategories.findIndex(cat => cat.id === currentMonotributoCat.id);
+    if (idx < settings.monotributoCategories.length - 1) return settings.monotributoCategories[idx + 1];
     return null;
-  }, [currentMonotributoCat]);
+  }, [currentMonotributoCat, settings.monotributoCategories]);
   
   const allTimeBilled = useMemo(() => {
     // Solo suma facturas ACTIVAS - las anuladas se restan efectivamente al no contarse
@@ -2312,11 +2315,16 @@ const App: React.FC = () => {
                       value={settings.arcaInfo.monotributoCategory || 'A'} 
                       onChange={e => updateArcaSetting('monotributoCategory', e.target.value)}
                       style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace', cursor: 'pointer' }}>
-                      {MONOTRIBUTO_CATEGORIES.map(cat => (
+                      {settings.monotributoCategories.map(cat => (
                         <option key={cat.id} value={cat.id}>Categoría {cat.id} (Hasta ${formatCurrency(cat.limit)})</option>
                       ))}
                     </select>
                   </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button onClick={() => setShowCategoryModal(true)} className="btn-secondary" style={{ fontSize: '0.65rem', borderStyle: 'dashed' }}>
+                    <Pencil size={12} /> CONFIGURAR LÍMITES DE CATEGORÍAS
+                  </button>
                 </div>
                 <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                   Usado para anualizar tus ingresos en caso de que lleves menos de 12 meses inscripto.
@@ -2646,6 +2654,54 @@ const App: React.FC = () => {
             <div style={{ display: 'flex', gap: '10px', marginTop: '30px' }}>
               <button className="btn-primary" onClick={handleSaveManualInvoice} style={{ flex: 1, justifyContent: 'center' }}>GUARDAR COMPROBANTE</button>
               <button className="btn-secondary" onClick={() => setShowManualInvoiceModal(false)}>CANCELAR</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- CATEGORY LIMITS MODAL --- */}
+      {showCategoryModal && (
+        <div className="modal-overlay" onClick={() => setShowCategoryModal(false)}>
+          <div className="modal-content premium-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', width: '100%' }}>
+            <h2 className="mono-font" style={{ color: 'var(--accent-color)', marginBottom: '20px', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Shield size={20} /> CONFIGURACIÓN DE LÍMITES AFIP
+            </h2>
+            <p className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
+              Modifica los topes anuales de cada categoría del Monotributo. El sistema los usará para calcular tus márgenes y alertas.
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', maxHeight: '50vh', overflowY: 'auto', paddingRight: '12px' }}>
+              {settings.monotributoCategories.map((cat, idx) => (
+                <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.02)', padding: '12px', border: '1px solid var(--surface-border)' }}>
+                  <div className="mono-font" style={{ width: '30px', fontWeight: 900, color: 'var(--accent-color)' }}>{cat.id}</div>
+                  <div style={{ flex: 1 }}>
+                    <input 
+                      type="number" 
+                      value={cat.limit} 
+                      onChange={e => {
+                        const newCats = [...settings.monotributoCategories];
+                        newCats[idx] = { ...cat, limit: parseInt(e.target.value) || 0 };
+                        updateSetting('monotributoCategories', newCats);
+                      }}
+                      style={{ width: '100%', background: '#000', border: 'none', color: 'white', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginTop: '30px' }}>
+               <button 
+                onClick={() => {
+                  if (confirm('¿Restablecer a los valores por defecto de Julio 2024?')) {
+                    updateSetting('monotributoCategories', INITIAL_MONOTRIBUTO_CATEGORIES);
+                  }
+                }} 
+                className="btn-secondary" 
+                style={{ fontSize: '0.7rem', borderColor: 'var(--warning)', color: 'var(--warning)' }}>
+                RESTABLECER VALORES
+              </button>
+              <button className="btn-primary" onClick={() => setShowCategoryModal(false)} style={{ padding: '10px 40px' }}>CERRAR</button>
             </div>
           </div>
         </div>
