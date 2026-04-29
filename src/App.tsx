@@ -127,6 +127,7 @@ interface AppSettings {
     keyPath: string;
     productionMode: boolean;
     monotributoStartDate?: string;
+    monotributoCategory?: string;
   };
   invoicePath?: string;
   theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean' | 'harry-potter' | 'marvel' | 'loki' | 'winamp';
@@ -167,7 +168,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoStart: false,
   appPassword: null,
   monthlyGoal: 500000,
-  arcaInfo: { cuit: '20326691314', puntoVenta: '2', certPath: '', keyPath: '', productionMode: true },
+  arcaInfo: { cuit: '20326691314', puntoVenta: '2', certPath: '', keyPath: '', productionMode: true, monotributoCategory: 'A' },
   invoicePath: '',
   theme: 'cyberpunk',
   widgetOpacity: 0.8,
@@ -608,8 +609,9 @@ const App: React.FC = () => {
   }, [twelveMonthStats, settings.arcaInfo?.monotributoStartDate, now]);
 
   const currentMonotributoCat = useMemo(() => {
-    return MONOTRIBUTO_CATEGORIES.find(cat => annualizedMonotributoStats.earnings <= cat.limit) || MONOTRIBUTO_CATEGORIES[MONOTRIBUTO_CATEGORIES.length - 1];
-  }, [annualizedMonotributoStats]);
+    const userCatId = settings.arcaInfo?.monotributoCategory || 'A';
+    return MONOTRIBUTO_CATEGORIES.find(cat => cat.id === userCatId) || MONOTRIBUTO_CATEGORIES[0];
+  }, [settings.arcaInfo?.monotributoCategory]);
 
   const nextMonotributoCat = useMemo(() => {
     const idx = MONOTRIBUTO_CATEGORIES.findIndex(cat => cat.id === currentMonotributoCat.id);
@@ -1363,7 +1365,7 @@ const App: React.FC = () => {
             transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
             opacity: isTopBar ? (isWidgetHovered ? 1 : 0.4) : (isWidgetHovered ? 1 : (settings.widgetOpacity || 0.4)),
             transform: isTopBar && !isWidgetHovered ? 'translateY(-56px)' : 'translateY(0)',
-            boxShadow: isTopBar && isWidgetHovered ? `0 4px 30px ${widgetConfig.accentColor || 'var(--accent-glow)'}` : 'none',
+            boxShadow: isTopBar && isWidgetHovered ? `0 4px 30px ${widgetConfig.accentColor || 'widgetConfig.accentGlow'}` : 'none',
             pointerEvents: 'auto', 
             ...(!isTopBar ? widgetConfig.customStyle : {})
           }}>
@@ -1892,16 +1894,20 @@ const App: React.FC = () => {
 
               <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--surface-border)', borderRadius: '4px' }}>
                  <div className="mono-font" style={{ fontSize: '0.7rem', display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>SALDO PARA MANTENER CATEGORÍA:</span>
-                    <span style={{ color: (currentMonotributoCat.limit - annualizedMonotributoStats.earnings) < 500000 ? 'var(--danger)' : 'var(--success)', fontWeight: 800 }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>SALDO PARA MANTENER CATEGORÍA {currentMonotributoCat.id}:</span>
+                    <span style={{ color: (currentMonotributoCat.limit - annualizedMonotributoStats.earnings) < 0 ? 'var(--danger)' : ((currentMonotributoCat.limit - annualizedMonotributoStats.earnings) < 500000 ? 'var(--warning)' : 'var(--success)'), fontWeight: 800 }}>
                       ${formatCurrency(currentMonotributoCat.limit - annualizedMonotributoStats.earnings)}
                     </span>
                  </div>
-                 {(currentMonotributoCat.limit - annualizedMonotributoStats.earnings) < 500000 && (
-                   <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--danger)', marginTop: '8px', fontWeight: 800 }}>
-                     ⚠️ ATENCIÓN: ESTÁS CERCA DEL LÍMITE DE RECATEGORIZACIÓN
-                   </div>
-                 )}
+                 {(currentMonotributoCat.limit - annualizedMonotributoStats.earnings) < 0 ? (
+                    <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--danger)', marginTop: '8px', fontWeight: 800 }}>
+                      ⚠️ ALERTA: HAS EXCEDIDO EL LÍMITE DE TU CATEGORÍA ({currentMonotributoCat.id}). DEBERÍAS RECATEGORIZARTE.
+                    </div>
+                  ) : (currentMonotributoCat.limit - annualizedMonotributoStats.earnings) < 500000 && (
+                    <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--warning)', marginTop: '8px', fontWeight: 800 }}>
+                      ⚠️ ATENCIÓN: ESTÁS MUY CERCA DEL LÍMITE DE TU CATEGORÍA ({currentMonotributoCat.id}).
+                    </div>
+                  )}
               </div>
             </div>
 
@@ -2294,10 +2300,24 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '24px' }}>
-                <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>FECHA DE INSCRIPCIÓN AL MONOTRIBUTO</label>
-                <input type="date" value={settings.arcaInfo.monotributoStartDate || ''} onChange={e => updateArcaSetting('monotributoStartDate', e.target.value)} 
-                  style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+                  <div>
+                    <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>FECHA DE INSCRIPCIÓN</label>
+                    <input type="date" value={settings.arcaInfo.monotributoStartDate || ''} onChange={e => updateArcaSetting('monotributoStartDate', e.target.value)} 
+                      style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
+                  </div>
+                  <div>
+                    <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>CATEGORÍA ACTUAL (AFIP)</label>
+                    <select 
+                      value={settings.arcaInfo.monotributoCategory || 'A'} 
+                      onChange={e => updateArcaSetting('monotributoCategory', e.target.value)}
+                      style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace', cursor: 'pointer' }}>
+                      {MONOTRIBUTO_CATEGORIES.map(cat => (
+                        <option key={cat.id} value={cat.id}>Categoría {cat.id} (Hasta ${formatCurrency(cat.limit)})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                   Usado para anualizar tus ingresos en caso de que lleves menos de 12 meses inscripto.
                 </div>
