@@ -62,6 +62,8 @@ declare global {
       openBackupsFolder: () => Promise<{ success: boolean }>;
       deepScanData: () => Promise<any[]>;
       importDataFromPath: (path: string) => Promise<{ success: boolean; error?: string }>;
+      requestSync: () => void;
+      onRequestSyncFromMain: (callback: (data: any) => void) => void;
       setIgnoreMouseEvents: (ignore: boolean, options?: { forward: boolean }) => void;
       onMonitoringDataUpdate: (callback: (data: any) => void) => void;
     }
@@ -1152,38 +1154,54 @@ const App: React.FC = () => {
         };
       case 'loki':
         return {
-          icon: <Clock size={24} color="#d47522" />,
-          borderRadius: '4px',
-          border: '1px solid #d47522',
-          background: 'rgba(26, 21, 15, 0.95)',
-          label: '⏳ TIEMPO RESTANTE',
-          labelColor: '#d47522',
-          accentColor: '#d47522',
+          icon: <Hourglass size={24} color="#fbbf24" />,
+          borderRadius: '40px',
+          border: '4px double #b45309',
+          background: 'radial-gradient(circle, #2d1b0d 0%, #1a1008 100%)',
+          label: isWidgetHovered && activeSessionId ? '💰 GANANCIA ACTUAL' : '⏳ VARIANTE DETECTADA',
+          labelColor: '#fbbf24',
+          accentColor: '#fbbf24',
           customStyle: {
-            borderLeft: '10px solid #d47522',
-            boxShadow: '0 0 15px rgba(212, 117, 34, 0.3)'
+            boxShadow: '0 0 25px rgba(251, 191, 36, 0.25)',
+            outline: '2px solid #fbbf24',
+            outlineOffset: '-8px'
+          }
+        };
+      case 'matrix':
+        return {
+          icon: <Terminal size={24} color="#00ff41" />,
+          borderRadius: '0',
+          border: '1px solid #00ff41',
+          background: 'rgba(0,0,0,0.95)',
+          label: isWidgetHovered && activeSessionId ? '> CALCULATING_PAYMENT...' : '> WHITE_RABBIT.EXE',
+          labelColor: '#00ff41',
+          accentColor: '#00ff41',
+          customStyle: {
+            boxShadow: 'inset 0 0 10px #00ff41, 0 0 15px #00ff41',
+            textShadow: '0 0 5px #00ff41'
           }
         };
       case 'winamp':
         return {
-          icon: <Music size={24} color="#00ff00" />,
+          icon: <Activity size={24} color="#00ff00" />,
           borderRadius: '0',
           border: '2px solid #555',
-          background: '#000',
-          label: '📻 LYNX AMP v2.0',
+          background: 'linear-gradient(to bottom, #3a3a3a 0%, #1a1a1a 100%)',
+          label: isWidgetHovered && activeSessionId ? 'TOTAL PAYOUT' : 'WINAMP 2.91',
           labelColor: '#00ff00',
           accentColor: '#00ff00',
           customStyle: {
-            boxShadow: 'inset 0 0 10px #00ff00',
-            fontFamily: 'monospace'
+            boxShadow: 'inset 2px 2px 0 #888, inset -2px -2px 0 #000',
+            fontFamily: '"JetBrains Mono", monospace'
           }
         };
+      case 'cyberpunk':
       default:
         return {
-          icon: <Activity size={24} color="var(--accent-color)" />,
+          icon: <Cpu size={24} color="var(--accent-color)" />,
           borderRadius: '4px',
-          border: '1px solid var(--surface-border)',
-          background: 'rgba(15, 23, 42, 0.8)',
+          border: '1px solid var(--accent-color)',
+          background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.95) 0%, rgba(15, 23, 42, 0.9) 100%)',
           label: isWidgetHovered && activeSessionId ? '💰 CRÉDITOS ACUMULADOS' : '⚡ ENLACE NEURAL',
           labelColor: 'var(--accent-color)',
           accentColor: 'var(--accent-color)',
@@ -1198,7 +1216,6 @@ const App: React.FC = () => {
   const widgetConfig = getThemeWidgetConfig() as any;
   const activeS = sessions.find(s => s.id === activeSessionId);
   const earnings = activeS ? (differenceInSeconds(now, parseISO(activeS.startTime)) / 3600) * activeS.rate : 0;
-  const monthlyStats = calculateStatsForInterval(startOfMonth(now), endOfMonth(now));
 
   // Handle Click-through for Top Bar
   useEffect(() => {
