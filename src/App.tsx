@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.45';
+const APP_VERSION = '2.3.46';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -2329,9 +2329,9 @@ const App: React.FC = () => {
                 <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                   Usado para anualizar tus ingresos en caso de que lleves menos de 12 meses inscripto.
                 </div>
-              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '24px' }}>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                 <div>
                   <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>UBICACIÓN DEL CERTIFICADO (.CRT)</label>
                   <div style={{ display: 'flex', gap: '8px' }}>
