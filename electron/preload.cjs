@@ -36,9 +36,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toastActionStart: (client) => ipcRenderer.send('toast-action-start', client),
   openWidget: (mode) => ipcRenderer.send('open-widget', mode),
   closeWidget: () => ipcRenderer.send('close-widget'),
+  requestSync: () => ipcRenderer.send('request-sync'),
   openBackupsFolder: () => ipcRenderer.invoke('open-backups-folder'),
   deepScanData: () => ipcRenderer.invoke('deep-scan-data'),
   importDataFromPath: (path) => ipcRenderer.invoke('import-data-from-path', path),
   setIgnoreMouseEvents: (ignore, options) => ipcRenderer.send('set-ignore-mouse-events', ignore, options),
-  onMonitoringDataUpdate: (callback) => ipcRenderer.on('monitoring-data-update', (event, data) => callback(data))
+  onMonitoringDataUpdate: (callback) => ipcRenderer.on('monitoring-data-update', (event, data) => callback(data)),
+  onRequestSyncFromMain: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('request-sync-from-main', listener);
+    return () => ipcRenderer.removeListener('request-sync-from-main', listener);
+  }
 });

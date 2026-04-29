@@ -225,8 +225,12 @@ function createWidgetWindow(mode = 'floating') {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
+      backgroundThrottling: false,
     },
   });
+
+  // Ensure window is truly transparent and clear
+  widgetWindow.setBackgroundColor('#00000000');
   
   widgetWindow.loadURL(widgetUrl);
 
@@ -374,7 +378,19 @@ ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
 
 ipcMain.on('open-widget', (event, mode) => {
   createWidgetWindow(mode || 'floating');
-  if (mainWindow) mainWindow.hide();
+  // Don't hide main window automatically, let the user decide or use a dedicated close button
+  // if (mainWindow) mainWindow.hide();
+  
+  // Immediately request sync from main window if it exists
+  if (mainWindow) {
+    mainWindow.webContents.send('request-sync-from-main');
+  }
+});
+
+ipcMain.on('request-sync', (event) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('request-sync-from-main');
+  }
 });
 
 ipcMain.on('sync-monitoring-data', (event, data) => {

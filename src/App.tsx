@@ -165,7 +165,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   arcaInfo: { cuit: '20326691314', puntoVenta: '2', certPath: '', keyPath: '', productionMode: true },
   invoicePath: '',
   theme: 'cyberpunk',
-  widgetOpacity: 0.2,
+  widgetOpacity: 0.8,
   widgetMode: 'floating'
 };
 
@@ -1114,138 +1114,142 @@ const App: React.FC = () => {
     setShowManualInvoiceModal(false);
   };
 
-  if (isWidgetView) {
-    const getThemeWidgetConfig = () => {
-      switch(settings.theme) {
-        case 'harry-potter':
-          return {
-            icon: <Bird size={24} color="#5d4037" />,
-            borderRadius: '12px',
-            border: '8px double #5d4037',
-            background: 'linear-gradient(to bottom, #f3e5ab 0%, #e5d392 100%)',
-            label: '🦉 CARTA DE HOGWARTS',
-            labelColor: '#5d4037',
-            accentColor: '#5d4037',
-            customStyle: {
-              boxShadow: '2px 2px 10px rgba(0,0,0,0.3)',
-              fontFamily: '"Cinzel", serif', 
-              color: '#5d4037'
-            }
-          };
-        case 'marvel':
-          return {
-            icon: <Zap size={24} color="#0ea5e9" />,
-            borderRadius: '0',
-            border: '1px solid #0ea5e9',
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%)',
-            label: '🛡️ PROTOCOLO STARK',
-            labelColor: '#0ea5e9',
-            accentColor: '#0ea5e9',
-            customStyle: {
-              clipPath: 'polygon(0 0, 100% 0, 100% 85%, 90% 100%, 0 100%)', 
-              borderLeft: '4px solid #0ea5e9',
-              boxShadow: '0 0 20px rgba(14, 165, 233, 0.3)'
-            }
-          };
-        case 'loki':
-          return {
-            icon: <Hourglass size={24} color="#fbbf24" />,
-            borderRadius: '40px',
-            border: '4px double #b45309',
-            background: 'radial-gradient(circle, #2d1b0d 0%, #1a1008 100%)',
-            label: isWidgetHovered && activeSessionId ? '💰 GANANCIA ACTUAL' : '⏳ VARIANTE DETECTADA',
-            labelColor: '#fbbf24',
-            accentColor: '#fbbf24',
-            customStyle: {
-              boxShadow: '0 0 25px rgba(251, 191, 36, 0.25)',
-              outline: '2px solid #fbbf24',
-              outlineOffset: '-8px'
-            }
-          };
-        case 'matrix':
-          return {
-            icon: <Terminal size={24} color="#00ff41" />,
-            borderRadius: '0',
-            border: '1px solid #00ff41',
-            background: 'rgba(0,0,0,0.95)',
-            label: isWidgetHovered && activeSessionId ? '> CALCULATING_PAYMENT...' : '> WHITE_RABBIT.EXE',
-            labelColor: '#00ff41',
-            accentColor: '#00ff41',
-            customStyle: {
-              boxShadow: 'inset 0 0 10px #00ff41, 0 0 15px #00ff41',
-              textShadow: '0 0 5px #00ff41'
-            }
-          };
-        case 'winamp':
-          return {
-            icon: <Activity size={24} color="#00ff00" />,
-            borderRadius: '0',
-            border: '2px solid #555',
-            background: 'linear-gradient(to bottom, #3a3a3a 0%, #1a1a1a 100%)',
-            label: isWidgetHovered && activeSessionId ? 'TOTAL PAYOUT' : 'WINAMP 2.91',
-            labelColor: '#00ff00',
-            accentColor: '#00ff00',
-            customStyle: {
-              boxShadow: 'inset 2px 2px 0 #888, inset -2px -2px 0 #000',
-              fontFamily: '"JetBrains Mono", monospace'
-            }
-          };
-        case 'cyberpunk':
-        default:
-          return {
-            icon: <Cpu size={24} color="var(--accent-color)" />,
-            borderRadius: '4px',
-            border: '1px solid var(--accent-color)',
-            background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.95) 0%, rgba(15, 23, 42, 0.9) 100%)',
-            label: isWidgetHovered && activeSessionId ? '💰 CRÉDITOS ACUMULADOS' : '⚡ ENLACE NEURAL',
-            labelColor: 'var(--accent-color)',
-            accentColor: 'var(--accent-color)',
-            customStyle: {
-              boxShadow: '0 0 30px var(--accent-glow), inset 0 0 10px rgba(13, 148, 136, 0.2)',
-              border: '1px solid rgba(13, 148, 136, 0.5)'
-            }
-          };
+  // --- WIDGET LOGIC & CONFIG (Moved to top level to avoid conditional hook violations) ---
+  const widgetMode = new URLSearchParams(window.location.search).get('mode') || 'floating';
+  const isTopBar = widgetMode === 'top-bar';
+  
+  const getThemeWidgetConfig = () => {
+    switch(settings.theme) {
+      case 'harry-potter':
+        return {
+          icon: <Bird size={24} color="#5d4037" />,
+          borderRadius: '12px',
+          border: '8px double #5d4037',
+          background: 'linear-gradient(to bottom, #f3e5ab 0%, #e5d392 100%)',
+          label: '🦉 CARTA DE HOGWARTS',
+          labelColor: '#5d4037',
+          accentColor: '#5d4037',
+          customStyle: {
+            boxShadow: '2px 2px 10px rgba(0,0,0,0.3)',
+            fontFamily: '"Cinzel", serif', 
+            color: '#5d4037'
+          }
+        };
+      case 'marvel':
+        return {
+          icon: <Zap size={24} color="#0ea5e9" />,
+          borderRadius: '0',
+          border: '1px solid #0ea5e9',
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%)',
+          label: '🛡️ PROTOCOLO STARK',
+          labelColor: '#0ea5e9',
+          accentColor: '#0ea5e9',
+          customStyle: {
+            clipPath: 'polygon(0 0, 100% 0, 100% 85%, 90% 100%, 0 100%)', 
+            borderLeft: '4px solid #0ea5e9',
+            boxShadow: '0 0 20px rgba(14, 165, 233, 0.3)'
+          }
+        };
+      case 'loki':
+        return {
+          icon: <Clock size={24} color="#d47522" />,
+          borderRadius: '4px',
+          border: '1px solid #d47522',
+          background: 'rgba(26, 21, 15, 0.95)',
+          label: '⏳ TIEMPO RESTANTE',
+          labelColor: '#d47522',
+          accentColor: '#d47522',
+          customStyle: {
+            borderLeft: '10px solid #d47522',
+            boxShadow: '0 0 15px rgba(212, 117, 34, 0.3)'
+          }
+        };
+      case 'winamp':
+        return {
+          icon: <Music size={24} color="#00ff00" />,
+          borderRadius: '0',
+          border: '2px solid #555',
+          background: '#000',
+          label: '📻 LYNX AMP v2.0',
+          labelColor: '#00ff00',
+          accentColor: '#00ff00',
+          customStyle: {
+            boxShadow: 'inset 0 0 10px #00ff00',
+            fontFamily: 'monospace'
+          }
+        };
+      default:
+        return {
+          icon: <Activity size={24} color="var(--accent-color)" />,
+          borderRadius: '4px',
+          border: '1px solid var(--surface-border)',
+          background: 'rgba(15, 23, 42, 0.8)',
+          label: isWidgetHovered && activeSessionId ? '💰 CRÉDITOS ACUMULADOS' : '⚡ ENLACE NEURAL',
+          labelColor: 'var(--accent-color)',
+          accentColor: 'var(--accent-color)',
+          customStyle: {
+            boxShadow: '0 0 30px var(--accent-glow), inset 0 0 10px rgba(13, 148, 136, 0.2)',
+            border: '1px solid rgba(13, 148, 136, 0.5)'
+          }
+        };
+    }
+  };
+
+  const widgetConfig = getThemeWidgetConfig() as any;
+  const activeS = sessions.find(s => s.id === activeSessionId);
+  const earnings = activeS ? (differenceInSeconds(now, parseISO(activeS.startTime)) / 3600) * activeS.rate : 0;
+  const monthlyStats = calculateStatsForInterval(startOfMonth(now), endOfMonth(now));
+
+  // Handle Click-through for Top Bar
+  useEffect(() => {
+    if (isWidgetView && isTopBar && window.electronAPI) {
+      if (isWidgetHovered) {
+        window.electronAPI.setIgnoreMouseEvents(false);
+      } else {
+        window.electronAPI.setIgnoreMouseEvents(true, { forward: true });
+      }
+    }
+  }, [isWidgetHovered, isTopBar, isWidgetView]);
+
+  // Fallback for Top Bar hover detection when ignoring mouse events
+  useEffect(() => {
+    if (!isWidgetView || !isTopBar) return;
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      if (e.clientY <= 10 && !isWidgetHovered) {
+        setIsWidgetHovered(true);
       }
     };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [isWidgetView, isTopBar, isWidgetHovered]);
 
-    const widgetConfig = getThemeWidgetConfig() as any;
-    const activeS = sessions.find(s => s.id === activeSessionId);
-    const earnings = activeS ? (differenceInSeconds(now, parseISO(activeS.startTime)) / 3600) * activeS.rate : 0;
+  // Handle Sync Request from Widget
+  useEffect(() => {
+    if (isWidgetView && window.electronAPI) {
+      window.electronAPI.requestSync();
+    }
+  }, [isWidgetView]);
 
-    const widgetMode = new URLSearchParams(window.location.search).get('mode') || 'floating';
-    const isTopBar = widgetMode === 'top-bar';
+  // Handle Sync Request from Main
+  useEffect(() => {
+    if (window.electronAPI && !isWidgetView && !isToastView) {
+      const cleanup = window.electronAPI.onRequestSyncFromMain(() => {
+        if (!isLoaded) return;
+        window.electronAPI?.syncMonitoringData({ 
+          clients: settings.clients,
+          activeClientId: activeS ? activeS.clientId : null,
+          activeSessionId: activeSessionId,
+          settings: settings,
+          sessions: sessions 
+        });
+      });
+      return cleanup;
+    }
+  }, [isWidgetView, isToastView, isLoaded, sessions, settings, activeSessionId, activeS]);
 
-    // Calculate stats for widget metrics
-    const monthlyStats = calculateStatsForInterval(startOfMonth(now), endOfMonth(now));
-
-    // Handle Click-through for Top Bar
-    useEffect(() => {
-      if (isWidgetView && isTopBar) {
-        if (isWidgetHovered) {
-          window.electronAPI?.setIgnoreMouseEvents(false);
-        } else {
-          // In Top Bar mode, we ignore mouse events to allow clicking "through" the transparent area
-          // but we keep 'forward' so we can still detect the mouse entering the hit area
-          window.electronAPI?.setIgnoreMouseEvents(true, { forward: true });
-        }
-      }
-    }, [isWidgetHovered, isTopBar, isWidgetView]);
-
-    // Fallback for Top Bar hover detection when ignoring mouse events
-    useEffect(() => {
-      if (!isWidgetView || !isTopBar) return;
-      
-      const handleMouseMove = (e: MouseEvent) => {
-        // If mouse is in the top 10px, trigger hover
-        if (e.clientY <= 10 && !isWidgetHovered) {
-          setIsWidgetHovered(true);
-        }
-      };
-      
-      window.addEventListener('mousemove', handleMouseMove);
-      return () => window.removeEventListener('mousemove', handleMouseMove);
-    }, [isWidgetView, isTopBar, isWidgetHovered]);
-
+  if (isWidgetView) {
     return (
       <div 
         style={{ 
@@ -1342,7 +1346,7 @@ const App: React.FC = () => {
                 {isWidgetHovered && activeSessionId ? (
                   <span style={{ color: 'var(--success)' }}>${formatCurrency(earnings)}</span>
                 ) : (
-                  activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"
+                  activeSessionId && activeS ? formatDuration(differenceInSeconds(now, parseISO(activeS.startTime)) / 3600) : "00:00:00"
                 )}
               </div>
             </div>

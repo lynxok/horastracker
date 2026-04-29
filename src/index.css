@@ -407,3 +407,13 @@ h1, h2, h3, .cyber-font {
   from { transform: translateY(-100%); }
   to { transform: translateY(0); }
 }
+
+body.is-widget {
+  background: transparent !important;
+  background-color: transparent !important;
+  overflow: hidden;
+}
+
+.is-widget #root {
+  background: transparent !important;
+}
