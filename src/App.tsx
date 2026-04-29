@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.46';
+const APP_VERSION = '2.3.47';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -621,6 +621,13 @@ const App: React.FC = () => {
     if (idx < settings.monotributoCategories.length - 1) return settings.monotributoCategories[idx + 1];
     return null;
   }, [currentMonotributoCat, settings.monotributoCategories]);
+
+  const suggestedCategory = useMemo(() => {
+    const projected = annualizedMonotributoStats.earnings;
+    // Encontrar la categoría más baja que cubra los ingresos proyectados
+    const found = settings.monotributoCategories.find(cat => cat.limit >= projected);
+    return found || { id: 'K+', limit: 999999999999 }; // K+ o Régimen General
+  }, [annualizedMonotributoStats.earnings, settings.monotributoCategories]);
   
   const allTimeBilled = useMemo(() => {
     // Solo suma facturas ACTIVAS - las anuladas se restan efectivamente al no contarse
@@ -1904,7 +1911,10 @@ const App: React.FC = () => {
                  </div>
                  {(currentMonotributoCat.limit - annualizedMonotributoStats.earnings) < 0 ? (
                     <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--danger)', marginTop: '8px', fontWeight: 800 }}>
-                      ⚠️ ALERTA: HAS EXCEDIDO EL LÍMITE DE TU CATEGORÍA ({currentMonotributoCat.id}). DEBERÍAS RECATEGORIZARTE.
+                      ⚠️ ALERTA: HAS EXCEDIDO EL LÍMITE DE TU CATEGORÍA ({currentMonotributoCat.id}). 
+                      DEBERÍAS ESTAR EN: <span style={{ color: 'white', background: 'var(--danger)', padding: '2px 6px', borderRadius: '3px', marginLeft: '4px' }}>
+                        {suggestedCategory.id === 'K+' ? 'RÉGIMEN GENERAL / EXCEDIDO' : `CATEGORÍA ${suggestedCategory.id}`}
+                      </span>
                     </div>
                   ) : (currentMonotributoCat.limit - annualizedMonotributoStats.earnings) < 500000 && (
                     <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--warning)', marginTop: '8px', fontWeight: 800 }}>
