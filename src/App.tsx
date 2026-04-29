@@ -6,7 +6,7 @@ import {
   Trash2, Shield, Activity, X,
   Minus, Maximize2, Pencil, BarChart3, Clock,
   Lock, Bird, Zap, Terminal, Hourglass, Cpu, GripVertical, Database, Search,
-  Plus, FileText
+  Plus, FileText, Pause
 } from 'lucide-react';
 import {
   format, differenceInSeconds, differenceInDays, startOfMonth, endOfMonth,
@@ -90,6 +90,8 @@ interface WorkSession {
   invoiced?: boolean;
   invoiceId?: string;
   note?: string;
+  pausedAt?: string | null;
+  totalPausedSeconds?: number;
 }
 
 interface BilledMonth {
@@ -528,15 +530,16 @@ const App: React.FC = () => {
 
       // Sync to Tray
       if (window.electronAPI) {
-         if (activeSessionId) {
+          if (activeSessionId) {
             const activeSession = sessions.find(s => s.id === activeSessionId);
             if (activeSession) {
-               const secs = differenceInSeconds(currentDate, parseISO(activeSession.startTime));
+               const endTime = activeSession.pausedAt ? parseISO(activeSession.pausedAt) : currentDate;
+               const secs = differenceInSeconds(endTime, parseISO(activeSession.startTime)) - (activeSession.totalPausedSeconds || 0);
                window.electronAPI?.updateTray(`Turno Activo: ${formatDuration(secs / 3600)}`);
             }
-         } else {
+          } else {
             window.electronAPI?.updateTray('En Espera');
-         }
+          }
       }
     }, 1000);
     return () => clearInterval(interval);
@@ -556,9 +559,9 @@ const App: React.FC = () => {
     let earnings = 0;
     sessions.forEach(s => {
       const sStart = parseISO(s.startTime);
-      const sEnd = s.endTime ? parseISO(s.endTime) : now;
+      const sEnd = s.endTime ? parseISO(s.endTime) : (s.pausedAt ? parseISO(s.pausedAt) : now);
       if (isWithinInterval(sStart, { start, end })) {
-        const secs = differenceInSeconds(sEnd, sStart);
+        const secs = differenceInSeconds(sEnd, sStart) - (s.totalPausedSeconds || 0);
         totalSecs += secs;
         earnings += (secs / 3600) * s.rate;
       }
@@ -704,12 +707,31 @@ const App: React.FC = () => {
       rate: activeClient.hourlyRate,
       clientId: activeClient.id,
       clientName: activeClient.name,
-      note: currentNote
+      note: currentNote,
+      totalPausedSeconds: 0
     };
     setSessions(prev => [...prev, newS]);
     setActiveSessionId(newS.id);
     playThematicSound(settings.theme || 'cyberpunk', 'punch-in');
 
+  };
+
+  const handleTogglePause = () => {
+    if (!activeSessionId) return;
+    setSessions(prev => prev.map(s => {
+      if (s.id === activeSessionId) {
+        if (s.pausedAt) {
+          // Resume
+          const diff = differenceInSeconds(new Date(), parseISO(s.pausedAt));
+          return { ...s, pausedAt: null, totalPausedSeconds: (s.totalPausedSeconds || 0) + diff };
+        } else {
+          // Pause
+          return { ...s, pausedAt: new Date().toISOString() };
+        }
+      }
+      return s;
+    }));
+    playThematicSound(settings.theme || 'cyberpunk', 'punch-in');
   };
 
   const handlePunchOut = () => {
@@ -1274,7 +1296,7 @@ const App: React.FC = () => {
 
   const widgetConfig = getThemeWidgetConfig() as any;
   const activeS = sessions.find(s => s.id === activeSessionId);
-  const earnings = activeS ? (differenceInSeconds(now, parseISO(activeS.startTime)) / 3600) * activeS.rate : 0;
+  const earnings = activeS ? (((differenceInSeconds(activeS.pausedAt ? parseISO(activeS.pausedAt) : now, parseISO(activeS.startTime)) - (activeS.totalPausedSeconds || 0))) / 3600) * activeS.rate : 0;
 
 
   if (isWidgetView) {
@@ -1377,7 +1399,7 @@ const App: React.FC = () => {
                 {isWidgetHovered && activeSessionId ? (
                   <span style={{ color: 'var(--success)' }}>${formatCurrency(earnings)}</span>
                 ) : (
-                  activeSessionId && activeS ? formatDuration(differenceInSeconds(now, parseISO(activeS.startTime)) / 3600) : "00:00:00"
+                  activeSessionId && activeS ? formatDuration((differenceInSeconds(activeS.pausedAt ? parseISO(activeS.pausedAt) : now, parseISO(activeS.startTime)) - (activeS.totalPausedSeconds || 0)) / 3600) : "00:00:00"
                 )}
               </div>
             </div>
@@ -1416,6 +1438,20 @@ const App: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+            {activeSessionId && (
+              <button 
+                onClick={handleTogglePause} 
+                className="btn-secondary"
+                style={{ 
+                  width: '32px', height: '32px', padding: 0, justifyContent: 'center',
+                  background: 'rgba(255,255,255,0.05)',
+                  borderColor: activeS?.pausedAt ? 'var(--warning)' : (widgetConfig.accentColor || 'var(--accent-color)'),
+                  color: activeS?.pausedAt ? 'var(--warning)' : (widgetConfig.accentColor || 'var(--accent-color)')
+                }}>
+                {activeS?.pausedAt ? <Play fill="currentColor" size={14} style={{ marginLeft: '2px' }} /> : <Pause fill="currentColor" size={14} />}
+              </button>
+            )}
+
             <button 
               onClick={activeSessionId ? handlePunchOut : handlePunchIn} 
               className="btn-primary"
@@ -1617,10 +1653,18 @@ const App: React.FC = () => {
                     />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <button onClick={activeSessionId ? handlePunchOut : handlePunchIn} className="btn-primary"
-                      style={{ width: '120px', height: '120px', borderRadius: '0', justifyContent: 'center', background: activeSessionId ? 'var(--danger)' : 'transparent', borderColor: activeSessionId ? 'var(--danger)' : 'var(--accent-color)', color: activeSessionId ? 'white' : 'var(--accent-color)', boxShadow: activeSessionId ? '0 0 40px var(--danger-glow)' : '0 0 30px var(--accent-glow)' }}>
-                      {activeSessionId ? <Square fill="currentColor" size={40} /> : <Play fill="currentColor" size={40} style={{ marginLeft: '8px' }} />}
-                    </button>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      {activeSessionId && (
+                        <button onClick={handleTogglePause} className="btn-secondary"
+                          style={{ width: '120px', height: '120px', borderRadius: '0', justifyContent: 'center', borderColor: activeS?.pausedAt ? 'var(--warning)' : 'var(--accent-color)', color: activeS?.pausedAt ? 'var(--warning)' : 'var(--accent-color)', boxShadow: activeS?.pausedAt ? '0 0 30px var(--warning-glow)' : '0 0 20px var(--accent-glow)' }}>
+                          {activeS?.pausedAt ? <Play fill="currentColor" size={40} style={{ marginLeft: '8px' }} /> : <Pause fill="currentColor" size={40} />}
+                        </button>
+                      )}
+                      <button onClick={activeSessionId ? handlePunchOut : handlePunchIn} className="btn-primary"
+                        style={{ width: '120px', height: '120px', borderRadius: '0', justifyContent: 'center', background: activeSessionId ? 'var(--danger)' : 'transparent', borderColor: activeSessionId ? 'var(--danger)' : 'var(--accent-color)', color: activeSessionId ? 'white' : 'var(--accent-color)', boxShadow: activeSessionId ? '0 0 40px var(--danger-glow)' : '0 0 30px var(--accent-glow)' }}>
+                        {activeSessionId ? <Square fill="currentColor" size={40} /> : <Play fill="currentColor" size={40} style={{ marginLeft: '8px' }} />}
+                      </button>
+                    </div>
                     {settings.widgetEnabled && (
                       <button 
                         onClick={() => window.electronAPI?.openWidget(settings.widgetMode)}
