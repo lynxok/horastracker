@@ -130,6 +130,7 @@ interface AppSettings {
   theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean' | 'harry-potter' | 'marvel' | 'loki' | 'winamp';
   widgetOpacity: number;
   widgetMode?: 'floating' | 'top-bar';
+  widgetEnabled: boolean;
 }
 
 const MONOTRIBUTO_CATEGORIES = [
@@ -168,7 +169,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   invoicePath: '',
   theme: 'cyberpunk',
   widgetOpacity: 0.8,
-  widgetMode: 'floating'
+  widgetMode: 'floating',
+  widgetEnabled: true
 };
 
 import { useThematicSounds } from './hooks/useThematicSounds';
@@ -874,8 +876,15 @@ const App: React.FC = () => {
   const updateSetting = (key: keyof AppSettings, value: any) => {
     setSettings(prev => {
       const next = { ...prev, [key]: value };
-      if (key === 'widgetMode' && window.electronAPI) {
+      if (key === 'widgetMode' && window.electronAPI && next.widgetEnabled) {
         window.electronAPI.openWidget(value);
+      }
+      if (key === 'widgetEnabled' && window.electronAPI) {
+        if (value) {
+          window.electronAPI.openWidget(next.widgetMode || 'floating');
+        } else {
+          window.electronAPI.closeWidget();
+        }
       }
       return next;
     });
@@ -1612,12 +1621,14 @@ const App: React.FC = () => {
                       style={{ width: '120px', height: '120px', borderRadius: '0', justifyContent: 'center', background: activeSessionId ? 'var(--danger)' : 'transparent', borderColor: activeSessionId ? 'var(--danger)' : 'var(--accent-color)', color: activeSessionId ? 'white' : 'var(--accent-color)', boxShadow: activeSessionId ? '0 0 40px var(--danger-glow)' : '0 0 30px var(--accent-glow)' }}>
                       {activeSessionId ? <Square fill="currentColor" size={40} /> : <Play fill="currentColor" size={40} style={{ marginLeft: '8px' }} />}
                     </button>
-                    <button 
-                      onClick={() => window.electronAPI?.openWidget(settings.widgetMode)}
-                      className="btn-secondary" 
-                      style={{ fontSize: '0.6rem', padding: '8px', justifyContent: 'center', gap: '8px', borderStyle: 'dashed' }}>
-                      <Minus size={14} /> MODO WIDGET
-                    </button>
+                    {settings.widgetEnabled && (
+                      <button 
+                        onClick={() => window.electronAPI?.openWidget(settings.widgetMode)}
+                        className="btn-secondary" 
+                        style={{ fontSize: '0.6rem', padding: '8px', justifyContent: 'center', gap: '8px', borderStyle: 'dashed' }}>
+                        <Minus size={14} /> MODO WIDGET
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2054,6 +2065,21 @@ const App: React.FC = () => {
               </label>
 
               <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--surface-border)' }}>
+                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span className="mono-font" style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>ACTIVAR WIDGET DE MONITOREO</span>
+                    <span className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>Muestra una mini-ventana con el tiempo real y ganancia actual.</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={settings.widgetEnabled}
+                    onChange={e => updateSetting('widgetEnabled', e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: 'var(--accent-color)' }}
+                  />
+                </label>
+              </div>
+
+              <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--surface-border)', opacity: settings.widgetEnabled ? 1 : 0.5, pointerEvents: settings.widgetEnabled ? 'auto' : 'none' }}>
                 <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>MODO DE PRESENTACIÓN DEL WIDGET</label>
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <button 
@@ -2071,7 +2097,7 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--surface-border)' }}>
+              <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--surface-border)', opacity: settings.widgetEnabled ? 1 : 0.5, pointerEvents: settings.widgetEnabled ? 'auto' : 'none' }}>
                 <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
                   TRANSPARENCIA "FANTASMA" DEL WIDGET ({Math.round(settings.widgetOpacity * 100)}%)
                 </label>
