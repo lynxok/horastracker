@@ -1278,13 +1278,40 @@ const App: React.FC = () => {
           top: 0,
           left: 0,
           zIndex: 9999,
-          pointerEvents: 'none',
-          overflow: 'hidden'
+          pointerEvents: isTopBar ? 'none' : 'auto',
+          overflow: isTopBar ? 'visible' : 'hidden'
         }}>
+
+        {/* TOP-BAR HIT AREA - OUTSIDE the translated div so it's always clickable */}
+        {isTopBar && (
+          <div 
+            onMouseEnter={() => setIsWidgetHovered(true)}
+            onMouseLeave={() => setIsWidgetHovered(false)}
+            style={{ 
+              position: 'absolute', top: 0, left: 0, right: 0, 
+              height: isWidgetHovered ? '80px' : '15px', 
+              zIndex: 10001, 
+              pointerEvents: 'auto',
+              background: 'transparent'
+            }} 
+          />
+        )}
+
+        {/* Peeking Indicator (top-bar collapsed) - OUTSIDE transformed div */}
+        {isTopBar && !isWidgetHovered && (
+          <div style={{ 
+            position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+            width: '80px', height: '4px', background: widgetConfig.accentColor || 'var(--accent-color)',
+            borderRadius: '0 0 4px 4px', opacity: 1, boxShadow: `0 0 15px ${widgetConfig.accentColor || 'var(--accent-color)'}`,
+            zIndex: 10002, pointerEvents: 'none'
+          }} />
+        )}
         
         {/* Actual Widget Content */}
         <div 
           className={`fade-in widget-container ${isTopBar ? 'top-bar-widget' : ''}`}
+          onMouseEnter={() => !isTopBar && setIsWidgetHovered(true)}
+          onMouseLeave={() => !isTopBar && setIsWidgetHovered(false)}
           style={{ 
             width: isTopBar ? '100%' : '300px', 
             height: isTopBar ? '60px' : '100px', 
@@ -1309,30 +1336,6 @@ const App: React.FC = () => {
             pointerEvents: 'auto', 
             ...(!isTopBar ? widgetConfig.customStyle : {})
           }}>
-          
-          {/* HIT AREA & SENSOR (only for Top Bar) */}
-          {isTopBar && (
-            <div 
-              onMouseEnter={() => setIsWidgetHovered(true)}
-              onMouseLeave={() => setIsWidgetHovered(false)}
-              style={{ 
-                position: 'fixed', top: 0, left: 0, right: 0, 
-                height: isWidgetHovered ? '80px' : '15px', 
-                zIndex: 10001, 
-                pointerEvents: 'auto',
-                background: 'transparent'
-              }} 
-            />
-          )}
-
-          {/* Peeking Indicator (only when collapsed) */}
-          {isTopBar && !isWidgetHovered && (
-            <div style={{ 
-              position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-              width: '80px', height: '4px', background: widgetConfig.accentColor || 'var(--accent-color)',
-              borderRadius: '0 0 4px 4px', opacity: 1, boxShadow: `0 0 15px ${widgetConfig.accentColor || 'var(--accent-color)'}`
-            }} />
-          )}
 
           {/* Drag handle - only for floating */}
           {!isTopBar && (
@@ -1425,17 +1428,6 @@ const App: React.FC = () => {
             </button>
           </div>
         </div>
-        
-        {/* Invisible hit area to trigger expansion when mouse is near the top */}
-        {isTopBar && (
-          <div 
-            onMouseEnter={() => setIsWidgetHovered(true)}
-            style={{ 
-              position: 'absolute', top: 0, left: 0, width: '100%', height: '15px', 
-              background: 'transparent', pointerEvents: 'auto', zIndex: 10000 
-            }} 
-          />
-        )}
       </div>
     );
   }
