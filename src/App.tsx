@@ -193,6 +193,8 @@ const App: React.FC = () => {
 
   const isWidgetView = window.location.search.includes('view=widget');
   const isToastView = window.location.search.includes('view=toast');
+  const widgetModeParam = new URLSearchParams(window.location.search).get('mode') || 'floating';
+  const isTopBar = widgetModeParam === 'top-bar';
 
   // Fix for widget background transparency
   useEffect(() => {
@@ -447,6 +449,57 @@ const App: React.FC = () => {
       });
     }
   }, [isLoaded, settings, activeSessionId, sessions]);
+
+  // --- WIDGET EFFECTS ---
+  // Handle Click-through for Top Bar
+  useEffect(() => {
+    if (isWidgetView && isTopBar && window.electronAPI) {
+      if (isWidgetHovered) {
+        window.electronAPI.setIgnoreMouseEvents(false);
+      } else {
+        window.electronAPI.setIgnoreMouseEvents(true, { forward: true });
+      }
+    }
+  }, [isWidgetHovered, isTopBar, isWidgetView]);
+
+  // Fallback for Top Bar hover detection when ignoring mouse events
+  useEffect(() => {
+    if (!isWidgetView || !isTopBar) return;
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      if (e.clientY <= 10 && !isWidgetHovered) {
+        setIsWidgetHovered(true);
+      }
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [isWidgetView, isTopBar, isWidgetHovered]);
+
+  // Handle Sync Request from Widget
+  useEffect(() => {
+    if (isWidgetView && window.electronAPI) {
+      window.electronAPI.requestSync();
+    }
+  }, [isWidgetView]);
+
+  // Handle Sync Request from Main
+  useEffect(() => {
+    if (window.electronAPI && !isWidgetView && !isToastView) {
+      const cleanup = window.electronAPI.onRequestSyncFromMain(() => {
+        if (!isLoaded) return;
+        const currentActiveS = sessions.find(s => s.id === activeSessionId);
+        window.electronAPI?.syncMonitoringData({ 
+          clients: settings.clients,
+          activeClientId: currentActiveS ? currentActiveS.clientId : null,
+          activeSessionId: activeSessionId,
+          settings: settings,
+          sessions: sessions 
+        });
+      });
+      return cleanup;
+    }
+  }, [isWidgetView, isToastView, isLoaded, sessions, settings, activeSessionId]);
 
   // Listen for sync from other windows
   useEffect(() => {
@@ -1116,10 +1169,7 @@ const App: React.FC = () => {
     setShowManualInvoiceModal(false);
   };
 
-  // --- WIDGET LOGIC & CONFIG (Moved to top level to avoid conditional hook violations) ---
-  const widgetMode = new URLSearchParams(window.location.search).get('mode') || 'floating';
-  const isTopBar = widgetMode === 'top-bar';
-  
+  // --- WIDGET LOGIC & CONFIG ---
   const getThemeWidgetConfig = () => {
     switch(settings.theme) {
       case 'harry-potter':
@@ -1217,54 +1267,6 @@ const App: React.FC = () => {
   const activeS = sessions.find(s => s.id === activeSessionId);
   const earnings = activeS ? (differenceInSeconds(now, parseISO(activeS.startTime)) / 3600) * activeS.rate : 0;
 
-  // Handle Click-through for Top Bar
-  useEffect(() => {
-    if (isWidgetView && isTopBar && window.electronAPI) {
-      if (isWidgetHovered) {
-        window.electronAPI.setIgnoreMouseEvents(false);
-      } else {
-        window.electronAPI.setIgnoreMouseEvents(true, { forward: true });
-      }
-    }
-  }, [isWidgetHovered, isTopBar, isWidgetView]);
-
-  // Fallback for Top Bar hover detection when ignoring mouse events
-  useEffect(() => {
-    if (!isWidgetView || !isTopBar) return;
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      if (e.clientY <= 10 && !isWidgetHovered) {
-        setIsWidgetHovered(true);
-      }
-    };
-    
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [isWidgetView, isTopBar, isWidgetHovered]);
-
-  // Handle Sync Request from Widget
-  useEffect(() => {
-    if (isWidgetView && window.electronAPI) {
-      window.electronAPI.requestSync();
-    }
-  }, [isWidgetView]);
-
-  // Handle Sync Request from Main
-  useEffect(() => {
-    if (window.electronAPI && !isWidgetView && !isToastView) {
-      const cleanup = window.electronAPI.onRequestSyncFromMain(() => {
-        if (!isLoaded) return;
-        window.electronAPI?.syncMonitoringData({ 
-          clients: settings.clients,
-          activeClientId: activeS ? activeS.clientId : null,
-          activeSessionId: activeSessionId,
-          settings: settings,
-          sessions: sessions 
-        });
-      });
-      return cleanup;
-    }
-  }, [isWidgetView, isToastView, isLoaded, sessions, settings, activeSessionId, activeS]);
 
   if (isWidgetView) {
     return (
