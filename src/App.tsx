@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.53';
+const APP_VERSION = '2.3.54';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -131,6 +131,8 @@ interface AppSettings {
   monthlyGoal: number;
   arcaInfo: {
     cuit: string;
+    nombreEmisor?: string;
+    domicilioComercial?: string;
     puntoVenta: string;
     certPath: string;
     keyPath: string;
@@ -178,7 +180,16 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoStart: false,
   appPassword: null,
   monthlyGoal: 500000,
-  arcaInfo: { cuit: '20326691314', puntoVenta: '2', certPath: '', keyPath: '', productionMode: true, monotributoCategory: 'A' },
+  arcaInfo: { 
+    cuit: '20326691314', 
+    nombreEmisor: 'Ignacio Valente',
+    domicilioComercial: 'Av. Siempre Viva 123, CABA',
+    puntoVenta: '2', 
+    certPath: '', 
+    keyPath: '', 
+    productionMode: true, 
+    monotributoCategory: 'A' 
+  },
   invoicePath: '',
   theme: 'cyberpunk',
   widgetOpacity: 0.8,
@@ -2362,6 +2373,19 @@ const App: React.FC = () => {
                   </div>
               </div>
               
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+                <div>
+                  <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>RAZÓN SOCIAL / NOMBRE</label>
+                  <input type="text" value={settings.arcaInfo.nombreEmisor || ''} onChange={e => updateArcaSetting('nombreEmisor', e.target.value)} placeholder="Ej: Juan Perez"
+                    style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
+                </div>
+                <div>
+                  <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>DOMICILIO COMERCIAL</label>
+                  <input type="text" value={settings.arcaInfo.domicilioComercial || ''} onChange={e => updateArcaSetting('domicilioComercial', e.target.value)} placeholder="Ej: Calle Falsa 123, CABA"
+                    style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
+                </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
                 <div>
                   <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>CUIT DEL EMISOR</label>

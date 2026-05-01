@@ -729,7 +729,7 @@ async function generatePDF(templateData, savePath) {
                 <div class="emisor-name">${templateData.emisorName}</div>
                 <div class="emisor-info">
                   Razon Social: ${templateData.emisorName}<br>
-                  Domicilio Comercial: Av. Siempre Viva 123, CABA<br>
+                  Domicilio Comercial: ${templateData.emisorDom}<br>
                   Condición frente al IVA: <b>Monotributista</b>
                 </div>
               </div>
@@ -740,7 +740,7 @@ async function generatePDF(templateData, savePath) {
                   Fecha de Emisión: <b>${templateData.fecha}</b><br>
                   CUIT: <b>${templateData.emisorCuit}</b><br>
                   Ingresos Brutos: <b>${templateData.emisorCuit}</b><br>
-                  Inicio de Actividades: <b>01/01/2020</b>
+                  Inicio de Actividades: <b>${templateData.inicioActividades}</b>
                 </div>
               </div>
             </div>
@@ -982,7 +982,10 @@ ipcMain.handle('arca-generate-invoice', async (event, { settings, client, amount
 
       await generatePDF({
         tipoLetra: 'C', tipoCod: type.toString(), tipoNombre: 'FACTURA C',
-        emisorName: 'Ignacio Valente', emisorCuit: settings.arcaInfo.cuit,
+        emisorName: settings.arcaInfo.nombreEmisor || 'Ignacio Valente', 
+        emisorDom: settings.arcaInfo.domicilioComercial || 'Av. Siempre Viva 123, CABA',
+        emisorCuit: settings.arcaInfo.cuit,
+        inicioActividades: settings.arcaInfo.monotributoStartDate ? new Date(settings.arcaInfo.monotributoStartDate).toLocaleDateString('es-AR') : '01/01/2020',
         clienteName: client.razonSocial, clienteCuit: client.cuit, clienteDom: client.domicilio,
         pv, nro: nro, fecha: new Date().toLocaleDateString('es-AR'),
         concepto: `Servicios de Consultoría - Período ${new Date(start).toLocaleDateString('es-AR')} al ${new Date(end).toLocaleDateString('es-AR')}`,
