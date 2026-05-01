@@ -914,21 +914,33 @@ ipcMain.handle('arca-generate-invoice', async (event, { settings, client, amount
       Concepto: 2, // 2: Servicios
       DocTipo: client.cuit.length > 8 ? 80 : 96, // 80: CUIT, 96: DNI/DNI
       DocNro: parseInt(client.cuit.replace(/-/g, '')),
-      CbteFch: parseInt(date),
-      ImpTotal: amount,
       ImpTotConc: 0,
-      ImpNeto: amount,
       ImpOpEx: 0,
       ImpIVA: 0,
       ImpTrib: 0,
       MonId: 'PES',
       MonCotiz: 1,
-      FchServDesde: parseInt(start.replace(/-/g, '').substring(0, 8)),
-      FchServHasta: parseInt(end.replace(/-/g, '').substring(0, 8)),
-      FchVtoPago: parseInt(date)
     };
 
-    const res = await afip.electronicBillingService.createNextInvoice(payload);
+    // Use a more robust way to get the next number and create the invoice
+    const lastRes = await afip.electronicBillingService.getLastVoucher(pv, type);
+    const nro = lastRes + 1;
+    
+    payload.CbteDesde = nro;
+    payload.CbteHasta = nro;
+
+    // Ensure all numeric fields are correctly typed and dates are strings for the SOAP client
+    const finalPayload = {
+      ...payload,
+      CbteFch: date,
+      FchServDesde: start.replace(/-/g, '').substring(0, 8),
+      FchServHasta: end.replace(/-/g, '').substring(0, 8),
+      FchVtoPago: date,
+      ImpTotal: parseFloat(amount.toFixed(2)),
+      ImpNeto: parseFloat(amount.toFixed(2))
+    };
+
+    const res = await afip.electronicBillingService.createInvoice(finalPayload);
     
     if (res && res.cae) {
       // 1. Prepare QR Data for AFIP (Official JSON Format)
@@ -939,7 +951,7 @@ ipcMain.handle('arca-generate-invoice', async (event, { settings, client, amount
         ptoVta: parseInt(pv),
         tipoCmp: type,
         nroCmp: nro,
-        importe: amount,
+        importe: parseFloat(amount.toFixed(2)),
         moneda: "PES",
         ctz: 1,
         tipoDocRec: client.cuit.length > 8 ? 80 : 96,
@@ -970,15 +982,23 @@ ipcMain.handle('arca-generate-invoice', async (event, { settings, client, amount
       return { success: true, cae: res.cae, numero: nro, filePath: fullPath };
     } else {
       let errorMsg = 'No se recibió el CAE de AFIP.';
-      if (res && res.response && res.response.Errors) {
+      
+      // Improved error extraction for SOAP faults and AFIP internal errors
+      if (res && res.Errors) {
+        const errors = Array.isArray(res.Errors.Err) 
+          ? res.Errors.Err.map(e => `[${e.Code}] ${e.Msg}`).join('\n')
+          : `[${res.Errors.Err.Code}] ${res.Errors.Err.Msg}`;
+        errorMsg += '\nErrores de AFIP:\n' + errors;
+      } else if (res && res.response && res.response.Errors) {
         const errors = Array.isArray(res.response.Errors.Err) 
           ? res.response.Errors.Err.map(e => `[${e.Code}] ${e.Msg}`).join('\n')
           : `[${res.response.Errors.Err.Code}] ${res.response.Errors.Err.Msg}`;
         errorMsg += '\nErrores de AFIP:\n' + errors;
       }
+      
       // Check observations
       try {
-        const detResp = res.response.FeDetResp.FECAEDetResponse[0];
+        const detResp = res.response ? res.response.FeDetResp.FECAEDetResponse[0] : (res.FeDetResp ? res.FeDetResp.FECAEDetResponse[0] : null);
         if (detResp && detResp.Observaciones) {
            const obs = Array.isArray(detResp.Observaciones.Obs)
             ? detResp.Observaciones.Obs.map(o => `[${o.Code}] ${o.Msg}`).join('\n')
@@ -1016,16 +1036,16 @@ ipcMain.handle('arca-generate-credit-note', async (event, { settings, invoice, c
       Concepto: 2,
       DocTipo: client.cuit.length > 8 ? 80 : 96,
       DocNro: parseInt(client.cuit.replace(/-/g, '')),
-      CbteFch: parseInt(date),
+      CbteFch: date,
       ImpTotal: parseFloat(invoice.totalAmount.toFixed(2)),
       ImpTotConc: 0,
       ImpNeto: parseFloat(invoice.totalAmount.toFixed(2)),
       ImpOpEx: 0,
       ImpIVA: 0,
       ImpTrib: 0,
-      FchServDesde: parseInt(startS),
-      FchServHasta: parseInt(endS),
-      FchVtoPago: parseInt(date),
+      FchServDesde: startS.replace(/-/g, ''),
+      FchServHasta: endS.replace(/-/g, ''),
+      FchVtoPago: date,
       MonId: 'PES',
       MonCotiz: 1,
       CbtesAsoc: [{

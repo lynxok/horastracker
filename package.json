@@ -1,7 +1,7 @@
 {
   "name": "tracker-de-horas",
   "private": true,
-  "version": "2.3.47",
+  "version": "2.3.48",
   "main": "electron/main.cjs",
   "repository": {
     "type": "git",

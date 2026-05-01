@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.47';
+const APP_VERSION = '2.3.48';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -977,7 +977,7 @@ const App: React.FC = () => {
         domicilio: client.domicilio,
         condicionIva: client.condicionIva
       },
-      amount: Math.floor(totalAmount),
+      amount: Number(totalAmount.toFixed(2)),
       start: earliest,
       end: latest
     });
