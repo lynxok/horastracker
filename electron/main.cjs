@@ -496,6 +496,60 @@ ipcMain.handle('arca-generate-csr', async (event, { cuit, name }) => {
   }
 });
 
+ipcMain.handle('arca-regenerate-pdf', async (event, { billedMonth, settings }) => {
+  try {
+    const userDataPath = app.getPath('userData');
+    const folder = settings.invoicePath || path.join(userDataPath, 'facturas');
+    if (!fs.existsSync(folder)) fs.mkdirSync(folder, { recursive: true });
+
+    const date = billedMonth.date.replace(/-/g, '').substring(0, 8);
+    const fileName = `Factura_${billedMonth.invoiceNumber}_${date}_REFIX.pdf`;
+    const fullPath = path.join(folder, fileName);
+
+    const client = settings.clients.find(c => c.name === billedMonth.clientName) || settings.clients[0];
+    
+    // Reconstruct QR Data
+    const type = 11; // Factura C
+    const pv = settings.arcaInfo.puntoVenta || 2;
+    const qrData = {
+      ver: 1,
+      fecha: billedMonth.date.substring(0, 10),
+      cuit: parseInt(settings.arcaInfo.cuit.replace(/-/g, '')),
+      ptoVta: parseInt(pv),
+      tipoCmp: type,
+      nroCmp: billedMonth.invoiceNumber,
+      importe: parseFloat(billedMonth.totalAmount.toFixed(2)),
+      moneda: "PES",
+      ctz: 1,
+      tipoDocRec: client.cuit.length > 8 ? 80 : 96,
+      nroDocRec: parseInt(client.cuit.replace(/-/g, '')),
+      tipoCodAut: "E",
+      codAut: parseInt(billedMonth.cae)
+    };
+    
+    const qrUrl = 'https://www.afip.gob.ar/fe/qr/?p=' + Buffer.from(JSON.stringify(qrData)).toString('base64');
+    const qrBase64 = await QRCode.toDataURL(qrUrl);
+
+    await generatePDF({
+      tipoLetra: 'C', tipoCod: type.toString(), tipoNombre: 'FACTURA C',
+      emisorName: settings.arcaInfo.nombreEmisor || 'Ignacio Valente', 
+      emisorDom: settings.arcaInfo.domicilioComercial || 'Av. Siempre Viva 123, CABA',
+      emisorCuit: settings.arcaInfo.cuit,
+      inicioActividades: settings.arcaInfo.monotributoStartDate ? new Date(settings.arcaInfo.monotributoStartDate).toLocaleDateString('es-AR') : '01/01/2020',
+      clienteName: billedMonth.clientName || client.razonSocial || client.name, 
+      clienteCuit: client.cuit, 
+      clienteDom: client.domicilio,
+      pv, nro: billedMonth.invoiceNumber, fecha: new Date(billedMonth.date).toLocaleDateString('es-AR'),
+      concepto: `RE-EMISIÓN: Servicios de Consultoría - Período ${new Date(billedMonth.serviceStart || billedMonth.date).toLocaleDateString('es-AR')} al ${new Date(billedMonth.serviceEnd || billedMonth.date).toLocaleDateString('es-AR')}`,
+      monto: billedMonth.totalAmount, cae: billedMonth.cae, caeVe: billedMonth.caeVto, qrBase64
+    }, fullPath);
+
+    return { success: true, filePath: fullPath };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 // File Opener
 ipcMain.handle('open-file', async (event, filePath) => {
   if (fs.existsSync(filePath)) {

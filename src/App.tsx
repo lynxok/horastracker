@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.54';
+const APP_VERSION = '2.3.55';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -40,6 +40,7 @@ declare global {
       testArcaConnection: (settings: any) => Promise<{ success: boolean; status?: any; error?: string; detailed?: string }>;
       generateArcaInvoice: (data: any) => Promise<{ success: boolean; cae?: string; numero?: number; filePath?: string; error?: string }>;
       generateArcaCreditNote: (data: any) => Promise<{ success: boolean; cae?: string; numero?: number; filePath?: string; error?: string }>;
+      regenerateArcaPDF: (data: { billedMonth: BilledMonth; settings: AppSettings }) => Promise<{ success: boolean; filePath?: string; error?: string }>;
       selectFolder: () => Promise<string | null>;
       selectFile: (filters: { name: string; extensions: string[] }[]) => Promise<string | null>;
       openFile: (path: string) => Promise<{ success: boolean; error?: string }>;
@@ -890,9 +891,44 @@ const App: React.FC = () => {
         rate: activeClient.hourlyRate
       });
     }
-    setShowManualEntry(true);
+    saveData(newData);
   };
 
+  const handleRegeneratePDF = async (bm: BilledMonth) => {
+    if (!window.electronAPI) return;
+    
+    try {
+      addLog('system', `Regenerando PDF para comprobante ${bm.invoiceNumber}...`);
+      const res = await window.electronAPI.regenerateArcaPDF({ billedMonth: bm, settings });
+      
+      if (res.success && res.filePath) {
+        addLog('system', `PDF regenerado exitosamente: ${res.filePath}`);
+        // Update local path
+        const newData = {
+          ...sessions,
+          billedMonths: billedMonths.map(item => item.id === bm.id ? { ...item, filePath: res.filePath } : item)
+        };
+        // Wait, sessions is separate
+        setBilledMonths(prev => prev.map(item => item.id === bm.id ? { ...item, filePath: res.filePath } : item));
+        
+        window.electronAPI.openFile(res.filePath);
+      } else {
+        throw new Error(res.error || 'Error desconocido al regenerar PDF');
+      }
+    } catch (err: any) {
+      addLog('error', `Error al regenerar PDF: ${err.message}`);
+      alert(`Error al regenerar PDF: ${err.message}`);
+    }
+  };
+
+  const calculateSessionStats = (s: WorkSession) => {
+    const session = sessions.find(s => s.id === id);
+    if (session?.invoiced) return alert("No se puede eliminar una sesión ya facturada.");
+    if (confirm('¿Eliminar el registro por completo?')) {
+      if (id === activeSessionId) setActiveSessionId(null);
+      setSessions(sessions.filter(s => s.id !== id));
+    }
+  };
 
   const deleteSession = (id: string) => {
     const session = sessions.find(s => s.id === id);
@@ -2041,6 +2077,16 @@ const App: React.FC = () => {
                               style={{ fontSize: '0.6rem', padding: '8px 12px' }}
                             >
                               VER PDF
+                            </button>
+                          )}
+                          {bm.cae && (
+                            <button 
+                              onClick={() => handleRegeneratePDF(bm)}
+                              className="btn-secondary" 
+                              style={{ fontSize: '0.6rem', padding: '8px 12px', borderColor: 'var(--accent-color)', color: 'var(--accent-color)' }}
+                              title="Corrige el encabezado del PDF usando los datos actuales de configuración"
+                            >
+                              REGENERAR PDF
                             </button>
                           )}
                           <button 
