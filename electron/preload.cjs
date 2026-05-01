@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPublicIp: () => ipcRenderer.invoke('get-public-ip'),
   getVersion: () => ipcRenderer.invoke('get-app-version'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  regenerateArcaPDF: (data) => ipcRenderer.invoke('arca-regenerate-pdf', data),
   restartApp: () => ipcRenderer.invoke('restart-app'),
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
