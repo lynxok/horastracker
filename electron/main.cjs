@@ -923,24 +923,38 @@ ipcMain.handle('arca-generate-invoice', async (event, { settings, client, amount
     };
 
     // Use a more robust way to get the next number and create the invoice
-    const lastRes = await afip.electronicBillingService.getLastVoucher(pv, type);
-    const nro = lastRes + 1;
+    let nro;
+    try {
+      const lastRes = await afip.electronicBillingService.getLastVoucher(pv, type);
+      nro = parseInt(lastRes) + 1;
+    } catch (err) {
+      throw new Error(`No se pudo obtener el último número de comprobante: ${err.message}`);
+    }
+
+    if (isNaN(nro)) {
+      throw new Error('El último número de comprobante obtenido no es válido.');
+    }
     
     payload.CbteDesde = nro;
     payload.CbteHasta = nro;
 
-    // Ensure all numeric fields are correctly typed and dates are strings for the SOAP client
+    // Ensure all numeric fields are correctly typed
     const finalPayload = {
       ...payload,
-      CbteFch: date,
-      FchServDesde: start.replace(/-/g, '').substring(0, 8),
-      FchServHasta: end.replace(/-/g, '').substring(0, 8),
-      FchVtoPago: date,
+      CbteFch: parseInt(date),
+      FchServDesde: parseInt(start.replace(/-/g, '').substring(0, 8)),
+      FchServHasta: parseInt(end.replace(/-/g, '').substring(0, 8)),
+      FchVtoPago: parseInt(date),
       ImpTotal: parseFloat(amount.toFixed(2)),
       ImpNeto: parseFloat(amount.toFixed(2))
     };
 
-    const res = await afip.electronicBillingService.createInvoice(finalPayload);
+    let res;
+    try {
+      res = await afip.electronicBillingService.createInvoice(finalPayload);
+    } catch (err) {
+      throw new Error(`Fallo en FECAESolicitar: ${err.message}. Payload: ${JSON.stringify(finalPayload)}`);
+    }
     
     if (res && res.cae) {
       // 1. Prepare QR Data for AFIP (Official JSON Format)
