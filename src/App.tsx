@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.49';
+const APP_VERSION = '2.3.50';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -367,6 +367,23 @@ const App: React.FC = () => {
       }
     };
     init();
+
+    // GLOBAL ERROR LOGGING
+    const handleError = (event: ErrorEvent) => {
+      addLog('error', 'SISTEMA', `Error Global: ${event.message}`, event.error?.stack);
+    };
+
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      addLog('error', 'SISTEMA', `Promesa Rechazada: ${event.reason}`, JSON.stringify(event.reason));
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
   }, []);
 
   useEffect(() => {
@@ -749,24 +766,39 @@ const App: React.FC = () => {
     setActiveSessionId(newS.id);
     playThematicSound(settings.theme || 'cyberpunk', 'punch-in');
 
+    addLog('info', 'RELOJ', `Punch-in: ${activeClient.name}`);
   };
 
   const handleTogglePause = () => {
     if (!activeSessionId) return;
-    setSessions(prev => prev.map(s => {
-      if (s.id === activeSessionId) {
-        if (s.pausedAt) {
-          // Resume
-          const diff = differenceInSeconds(new Date(), parseISO(s.pausedAt));
-          return { ...s, pausedAt: null, totalPausedSeconds: (s.totalPausedSeconds || 0) + diff };
-        } else {
-          // Pause
-          return { ...s, pausedAt: new Date().toISOString() };
-        }
+    try {
+      const activeS = sessions.find(s => s.id === activeSessionId);
+      if (!activeS) return;
+
+      const nowStr = new Date().toISOString();
+      let nextSessions = [...sessions];
+
+      if (activeS.pausedAt) {
+        // Unpausing
+        const pauseStart = parseISO(activeS.pausedAt);
+        const pauseDuration = differenceInSeconds(new Date(), pauseStart);
+        nextSessions = sessions.map(s => s.id === activeSessionId ? { 
+          ...s, 
+          pausedAt: undefined, 
+          totalPausedSeconds: (s.totalPausedSeconds || 0) + pauseDuration 
+        } : s);
+        addLog('info', 'RELOJ', 'Turno reanudado');
+      } else {
+        // Pausing
+        nextSessions = sessions.map(s => s.id === activeSessionId ? { ...s, pausedAt: nowStr } : s);
+        addLog('info', 'RELOJ', 'Turno pausado');
       }
-      return s;
-    }));
-    playThematicSound(settings.theme || 'cyberpunk', 'punch-in');
+      
+      setSessions(nextSessions);
+      playThematicSound(settings.theme || 'cyberpunk', 'punch-in');
+    } catch (err: any) {
+      addLog('error', 'RELOJ', `Error al pausar/reanudar: ${err.message}`);
+    }
   };
 
   const handlePunchOut = () => {
