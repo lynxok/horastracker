@@ -922,23 +922,7 @@ ipcMain.handle('arca-generate-invoice', async (event, { settings, client, amount
       MonCotiz: 1,
     };
 
-    // Use a more robust way to get the next number and create the invoice
-    let nro;
-    try {
-      const lastRes = await afip.electronicBillingService.getLastVoucher(pv, type);
-      nro = parseInt(lastRes) + 1;
-    } catch (err) {
-      throw new Error(`No se pudo obtener el último número de comprobante: ${err.message}`);
-    }
-
-    if (isNaN(nro)) {
-      throw new Error('El último número de comprobante obtenido no es válido.');
-    }
-    
-    payload.CbteDesde = nro;
-    payload.CbteHasta = nro;
-
-    // Ensure all numeric fields are correctly typed
+    // Use createNextInvoice to let the library handle numbering automatically
     const finalPayload = {
       ...payload,
       CbteFch: parseInt(date),
@@ -951,12 +935,24 @@ ipcMain.handle('arca-generate-invoice', async (event, { settings, client, amount
 
     let res;
     try {
-      res = await afip.electronicBillingService.createInvoice(finalPayload);
+      res = await afip.electronicBillingService.createNextInvoice(finalPayload);
     } catch (err) {
-      throw new Error(`Fallo en FECAESolicitar: ${err.message}. Payload: ${JSON.stringify(finalPayload)}`);
+      throw new Error(`Fallo en createNextInvoice: ${err.message}. Payload: ${JSON.stringify(finalPayload)}`);
     }
     
     if (res && res.cae) {
+      // Extract invoice number from response
+      let nro;
+      try {
+        nro = res.response ? res.response.FeDetResp.FECAEDetResponse[0].CbteHasta : res.nro;
+      } catch (e) {
+        nro = res.nro;
+      }
+
+      if (!nro) {
+         throw new Error('AFIP aprobó el comprobante pero no se pudo determinar el número asignado.');
+      }
+
       // 1. Prepare QR Data for AFIP (Official JSON Format)
       const qrData = {
         ver: 1,
