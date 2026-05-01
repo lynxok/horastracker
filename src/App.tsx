@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.55';
+const APP_VERSION = '2.3.56';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -903,14 +903,7 @@ const App: React.FC = () => {
       
       if (res.success && res.filePath) {
         addLog('system', `PDF regenerado exitosamente: ${res.filePath}`);
-        // Update local path
-        const newData = {
-          ...sessions,
-          billedMonths: billedMonths.map(item => item.id === bm.id ? { ...item, filePath: res.filePath } : item)
-        };
-        // Wait, sessions is separate
         setBilledMonths(prev => prev.map(item => item.id === bm.id ? { ...item, filePath: res.filePath } : item));
-        
         window.electronAPI.openFile(res.filePath);
       } else {
         throw new Error(res.error || 'Error desconocido al regenerar PDF');
@@ -922,12 +915,14 @@ const App: React.FC = () => {
   };
 
   const calculateSessionStats = (s: WorkSession) => {
-    const session = sessions.find(s => s.id === id);
-    if (session?.invoiced) return alert("No se puede eliminar una sesión ya facturada.");
-    if (confirm('¿Eliminar el registro por completo?')) {
-      if (id === activeSessionId) setActiveSessionId(null);
-      setSessions(sessions.filter(s => s.id !== id));
-    }
+    const start = parseISO(s.startTime);
+    const end = s.endTime ? parseISO(s.endTime) : now;
+    const diff = differenceInSeconds(end, start);
+    const paused = s.totalPausedSeconds || 0;
+    const effective = Math.max(0, diff - paused);
+    const hours = effective / 3600;
+    const subtotal = hours * s.rate;
+    return { hours, subtotal };
   };
 
   const deleteSession = (id: string) => {
@@ -1010,213 +1005,6 @@ const App: React.FC = () => {
     } else {
       alert("CÓDIGO DE ACCESO DENEGADO.");
     }
-  };
-
-  const updateSetting = (key: keyof AppSettings, value: any) => {
-    setSettings(prev => {
-      const next = { ...prev, [key]: value };
-      if (key === 'widgetMode' && window.electronAPI && next.widgetEnabled) {
-        window.electronAPI.openWidget(value);
-      }
-      if (key === 'widgetEnabled' && window.electronAPI) {
-        if (value) {
-          window.electronAPI.openWidget(next.widgetMode || 'floating');
-        } else {
-          window.electronAPI.closeWidget();
-        }
-      }
-      return next;
-    });
-    if (key === 'minimizeToTray' && window.electronAPI) window.electronAPI?.setMinimizeToTray(value);
-    if (key === 'autoStart' && window.electronAPI) window.electronAPI?.setAutostart(value);
-  };
-
-  const updateArcaSetting = (key: keyof AppSettings['arcaInfo'], value: any) => {
-    setSettings(prev => ({ ...prev, arcaInfo: { ...prev.arcaInfo, [key]: value } }));
-  };
-
-  const testArca = async () => {
-    if (!window.electronAPI) return;
-    setArcaTesting(true);
-    setArcaStatus({ msg: 'Conectando con servidores de AFIP...', type: 'idle' });
-    
-    const res = await window.electronAPI?.testArcaConnection(settings);
-    if (res.success) {
-      setArcaStatus({ msg: `CONEXIÓN EXITOSA. Servidor App: ${res.status.AppServer}, DB: ${res.status.DbServer}`, type: 'success' });
-      setArcaDetailedError('');
-      addLog('info', 'ARCA', 'Prueba de conexión exitosa');
-    } else {
-      setArcaStatus({ msg: `ERROR DE CONEXIÓN: ${res.error}`, type: 'error' });
-      setArcaDetailedError(res.detailed || 'No hay detalles técnicos adicionales.');
-      addLog('error', 'ARCA', `Fallo en prueba de conexión: ${res.error}`, res.detailed);
-    }
-    setArcaTesting(false);
-  };
-
-  const handleGenerateInvoice = async () => {
-    if (!window.electronAPI) return;
-    const selectedList = sessions.filter(s => selectedSessions.has(s.id));
-    if (selectedList.length === 0) return;
-
-    const totalAmount = selectedList.reduce((acc, s) => acc + (differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600) * s.rate, 0);
-    const totalHours = selectedList.reduce((acc, s) => acc + (differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600), 0);
-
-    const earliest = format(parseISO(selectedList.sort((a,b) => a.startTime.localeCompare(b.startTime))[0].startTime), 'yyyy-MM-dd');
-    const latest = format(parseISO(selectedList.sort((a,b) => b.startTime.localeCompare(a.startTime))[0].endTime!), 'yyyy-MM-dd');
-
-    const targetClientId = selectedList[0].clientId;
-    const client = settings.clients.find(c => c.id === targetClientId) || settings.clients[0];
-    
-    // Ensure all sessions belong to the same client
-    if (selectedList.some(s => s.clientId !== targetClientId)) {
-      alert("Error: No se pueden facturar sesiones de distintos clientes en un mismo comprobante.");
-      return;
-    }
-
-    if (!confirm(`¿Emitir factura oficial para ${client.name} por $${formatCurrency(totalAmount)}?`)) return;
-
-    setIsInvoicing(true);
-    const res = await window.electronAPI?.generateArcaInvoice({
-      settings, 
-      client: {
-        razonSocial: client.name,
-        cuit: client.cuit,
-        domicilio: client.domicilio,
-        condicionIva: client.condicionIva
-      },
-      amount: Number(totalAmount.toFixed(2)),
-      start: earliest,
-      end: latest
-    });
-
-    if (res.success) {
-      const invoiceId = crypto.randomUUID();
-      const newInvoice: BilledMonth = {
-        id: invoiceId,
-        date: new Date().toISOString(),
-        month: `${format(parseISO(earliest), 'dd/MM')} al ${format(parseISO(latest), 'dd/MM')}`,
-        totalHours,
-        rate: client.hourlyRate,
-        totalAmount,
-        status: 'ACTIVE',
-        invoiceNumber: res.numero,
-        cae: res.cae,
-        filePath: res.filePath,
-        monthlyGoal: settings.monthlyGoal,
-        sessionsIds: Array.from(selectedSessions),
-        clientId: client.id,
-        clientName: client.name,
-        serviceStart: earliest,
-        serviceEnd: latest
-      };
-
-      setBilledMonths([newInvoice, ...billedMonths]);
-      setSessions(sessions.map(s => selectedSessions.has(s.id) ? { ...s, invoiced: true, invoiceId } : s));
-      setShowInvoicingModal(false);
-      
-      if (confirm("FACTURA GENERADA CON ÉXITO. ¿Desea abrir el archivo PDF?")) {
-        window.electronAPI?.openFile(res.filePath!);
-      }
-      addLog('info', 'FACTURACIÓN', `Factura #${res.numero} generada exitosamente para ${client.name}`);
-    } else {
-      alert(`ERROR AFIP: ${res.error}`);
-      addLog('error', 'AFIP', `Error generando factura: ${res.error}`);
-    }
-    setIsInvoicing(false);
-  };
-
-  const handleAnnullInvoice = async (invoice: BilledMonth) => {
-    if (!window.electronAPI) return;
-    if (!confirm(`¿Estás seguro de anular la factura N° ${invoice.invoiceNumber}? Se generará una Nota de Crédito en AFIP.`)) return;
-
-    setIsInvoicing(true);
-    const client = settings.clients.find(c => c.id === invoice.clientId) || settings.clients[0];
-    
-    const res = await window.electronAPI?.generateArcaCreditNote({
-      settings, 
-      invoice, 
-      client: {
-        razonSocial: client.name,
-        cuit: client.cuit,
-        domicilio: client.domicilio,
-        condicionIva: client.condicionIva
-      }
-    });
-
-    if (res.success) {
-      setBilledMonths(billedMonths.map(m => m.id === invoice.id ? { ...m, status: 'CANCELLED' } : m));
-      // Release sessions
-      setSessions(sessions.map(s => s.invoiceId === invoice.id ? { ...s, invoiced: false, invoiceId: undefined } : s));
-      
-      if (confirm(`ANULACIÓN COMPLETADA (N. Crédito: ${res.numero}). ¿Desea abrir el archivo comprobante?`)) {
-        window.electronAPI?.openFile(res.filePath!);
-      }
-    } else {
-      alert(`ERROR AFIP: ${res.error}`);
-    }
-    setIsInvoicing(false);
-  };
-
-  const verifyInvoiceInAfip = async (m: BilledMonth) => {
-    try {
-      const type = m.status === 'ACTIVE' ? 11 : 13;
-      const pv = settings.arcaInfo.puntoVenta || 2;
-      const res = await window.electronAPI?.getArcaInvoiceInfo({
-        settings,
-        number: m.invoiceNumber,
-        pv,
-        type
-      });
-
-      if (res?.success) {
-        if (!res.info) {
-          if (confirm(`ARCA informa que este comprobante NO EXISTE.\n\n¿Deseas eliminarlo de tu historial local para limpiar la lista y liberar las horas?`)) {
-            handleDeleteRecord(m, true);
-          }
-          return;
-        }
-        const info = res.info;
-        alert(`VERIFICACIÓN EXITOSA EN ARCA:\n\nComprobante #${m.invoiceNumber}\nCliente: ${m.clientName}\nImporte: $${info.ImpTotal}\nEstado: APROBADO (CAE: ${info.CodAutorizacion})\nFecha AFIP: ${info.CbteFch}`);
-      } else {
-        const errMsg = res?.error || '';
-        if (errMsg.includes('no existe') || errMsg.includes('601')) {
-          if (confirm(`ARCA informa que este comprobante NO EXISTE.\n\n¿Deseas eliminarlo de tu historial local para limpiar la lista y liberar las horas?`)) {
-            handleDeleteRecord(m, true);
-          }
-        } else {
-          alert(`ERROR DE VERIFICACIÓN:\n${errMsg || 'No se pudo contactar con ARCA'}`);
-        }
-      }
-    } catch (err: any) {
-      alert("Falla crítica al conectar con ARCA: " + err.message);
-    }
-  };
-
-  const handleDeleteRecord = (record: BilledMonth, silent = false) => {
-    if (!silent) {
-      if (!confirm(`¿Estás seguro de ELIMINAR este registro del historial? Esta acción no anula el comprobante en AFIP, solo lo borra de la App.`)) return;
-    }
-    
-    setBilledMonths(prev => prev.filter(m => m.id !== record.id));
-    
-    if (record.status === 'ACTIVE') {
-      setSessions(prev => prev.map(s => s.invoiceId === record.id ? { ...s, invoiced: false, invoiceId: undefined } : s));
-    }
-  };
-
-  const pickFolder = async () => {
-    const path = await window.electronAPI?.selectFolder();
-    if (path) updateSetting('invoicePath', path);
-  };
-
-  const pickCert = async () => {
-    const path = await window.electronAPI?.selectFile([{ name: 'Certificados AFIP', extensions: ['crt'] }]);
-    if (path) updateArcaSetting('certPath', path);
-  };
-
-  const pickKey = async () => {
-    const path = await window.electronAPI?.selectFile([{ name: 'Claves Privadas', extensions: ['key'] }]);
-    if (path) updateArcaSetting('keyPath', path);
   };
 
   if (!isLoaded) return null;
