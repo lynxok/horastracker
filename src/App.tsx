@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.50';
+const APP_VERSION = '2.3.51';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -293,6 +293,7 @@ const App: React.FC = () => {
     const init = async () => {
       let savedSessions = [];
       let savedBilled = [];
+      let savedLogs: SystemLog[] = [];
       let savedSettings = DEFAULT_SETTINGS;
 
       if (window.electronAPI) {
@@ -303,6 +304,7 @@ const App: React.FC = () => {
         if (data) {
           savedSessions = data.sessions || [];
           savedBilled = data.billedMonths || [];
+          savedLogs = data.systemLogs || [];
           savedSettings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) };
           
           // Migration from old single client format
@@ -333,6 +335,7 @@ const App: React.FC = () => {
           const p = JSON.parse(d);
           savedSessions = p.sessions || [];
           savedBilled = p.billedMonths || [];
+          savedLogs = p.systemLogs || [];
           savedSettings = { ...DEFAULT_SETTINGS, ...(p.settings || {}) };
         }
       }
@@ -344,7 +347,7 @@ const App: React.FC = () => {
         date: m.date || new Date().toISOString(),
         sessionsIds: m.sessionsIds || []
       })));
-      setSystemLogs(data?.systemLogs || []);
+      setSystemLogs(savedLogs);
       setSettings(savedSettings);
 
       const active = savedSessions.find((s: any) => !s.endTime);
