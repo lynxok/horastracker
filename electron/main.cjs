@@ -540,7 +540,7 @@ ipcMain.handle('arca-regenerate-pdf', async (event, { billedMonth, settings }) =
       clienteCuit: client.cuit, 
       clienteDom: client.domicilio,
       pv, nro: billedMonth.invoiceNumber, fecha: new Date(billedMonth.date).toLocaleDateString('es-AR'),
-      concepto: `RE-EMISIÓN: Servicios de Consultoría - Período ${new Date(billedMonth.serviceStart || billedMonth.date).toLocaleDateString('es-AR')} al ${new Date(billedMonth.serviceEnd || billedMonth.date).toLocaleDateString('es-AR')}`,
+      concepto: `Servicios de Consultoría - Período ${new Date(billedMonth.serviceStart || billedMonth.date).toLocaleDateString('es-AR')} al ${new Date(billedMonth.serviceEnd || billedMonth.date).toLocaleDateString('es-AR')}`,
       monto: billedMonth.totalAmount, cae: billedMonth.cae, caeVe: billedMonth.caeVto, qrBase64
     }, fullPath);
 
