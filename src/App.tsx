@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.48';
+const APP_VERSION = '2.3.49';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -92,6 +92,15 @@ interface WorkSession {
   note?: string;
   pausedAt?: string | null;
   totalPausedSeconds?: number;
+}
+
+interface SystemLog {
+  id: string;
+  timestamp: string;
+  type: 'error' | 'info' | 'warning';
+  source: string;
+  message: string;
+  detailed?: string;
 }
 
 interface BilledMonth {
@@ -189,6 +198,7 @@ const App: React.FC = () => {
   // Data State
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [billedMonths, setBilledMonths] = useState<BilledMonth[]>([]);
+  const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   
   // App Infrastructure State
@@ -266,6 +276,18 @@ const App: React.FC = () => {
     totalHours: ''
   });
 
+  const addLog = (type: SystemLog['type'], source: string, message: string, detailed?: string) => {
+    const newLog: SystemLog = {
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      type,
+      source,
+      message,
+      detailed
+    };
+    setSystemLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
+  };
+
   // Initialize
   useEffect(() => {
     const init = async () => {
@@ -322,6 +344,7 @@ const App: React.FC = () => {
         date: m.date || new Date().toISOString(),
         sessionsIds: m.sessionsIds || []
       })));
+      setSystemLogs(data?.systemLogs || []);
       setSettings(savedSettings);
 
       const active = savedSessions.find((s: any) => !s.endTime);
@@ -356,14 +379,14 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!isLoaded) return;
     
-    const payload = { sessions, billedMonths, settings };
+    const payload = { sessions, billedMonths, systemLogs, settings };
     
     if (window.electronAPI) {
       window.electronAPI?.saveData(payload);
     } else {
       localStorage.setItem('lynx_v2_data', JSON.stringify(payload));
     }
-  }, [sessions, billedMonths, settings, isLoaded]);
+  }, [sessions, billedMonths, systemLogs, settings, isLoaded]);
 
   useEffect(() => {
     // Zone Detection Logic (Local fallback removed, now handled by main.cjs)
@@ -939,9 +962,11 @@ const App: React.FC = () => {
     if (res.success) {
       setArcaStatus({ msg: `CONEXIÓN EXITOSA. Servidor App: ${res.status.AppServer}, DB: ${res.status.DbServer}`, type: 'success' });
       setArcaDetailedError('');
+      addLog('info', 'ARCA', 'Prueba de conexión exitosa');
     } else {
       setArcaStatus({ msg: `ERROR DE CONEXIÓN: ${res.error}`, type: 'error' });
       setArcaDetailedError(res.detailed || 'No hay detalles técnicos adicionales.');
+      addLog('error', 'ARCA', `Fallo en prueba de conexión: ${res.error}`, res.detailed);
     }
     setArcaTesting(false);
   };
@@ -1010,8 +1035,10 @@ const App: React.FC = () => {
       if (confirm("FACTURA GENERADA CON ÉXITO. ¿Desea abrir el archivo PDF?")) {
         window.electronAPI?.openFile(res.filePath!);
       }
+      addLog('info', 'FACTURACIÓN', `Factura #${res.numero} generada exitosamente para ${client.name}`);
     } else {
       alert(`ERROR AFIP: ${res.error}`);
+      addLog('error', 'AFIP', `Error generando factura: ${res.error}`);
     }
     setIsInvoicing(false);
   };
@@ -2460,6 +2487,55 @@ const App: React.FC = () => {
                   REINICIAR E INSTALAR AHORA
                 </button>
               )}
+            </div>
+
+            {/* SECCION 7 - LOG DE ERRORES */}
+            <div className="premium-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.9rem' }}>7. REGISTRO TÉCNICO (ERROR LOG)</h3>
+                <button 
+                  onClick={() => {
+                    if (confirm('¿Deseas limpiar el historial de logs?')) setSystemLogs([]);
+                  }} 
+                  className="btn-secondary" 
+                  style={{ padding: '4px 16px', fontSize: '0.7rem', borderColor: 'var(--danger)', color: 'var(--danger)' }}>
+                  LIMPIAR LOGS
+                </button>
+              </div>
+
+              <div style={{ background: '#000', border: '1px solid var(--surface-border)', maxHeight: '400px', overflowY: 'auto' }}>
+                {systemLogs.length === 0 ? (
+                  <div className="mono-font" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.7rem' }}>NO HAY REGISTROS EN EL LOG.</div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', textAlign: 'left', borderBottom: '1px solid var(--surface-border)', background: 'rgba(255,255,255,0.02)' }}>
+                      <tr>
+                        <th style={{ padding: '10px' }}>TIMESTAMP</th>
+                        <th>TIPO</th>
+                        <th>ORIGEN</th>
+                        <th>MENSAJE</th>
+                      </tr>
+                    </thead>
+                    <tbody className="mono-font" style={{ fontSize: '0.65rem' }}>
+                      {systemLogs.map(log => (
+                        <tr key={log.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', color: log.type === 'error' ? '#fca5a5' : (log.type === 'warning' ? '#fcd34d' : 'var(--text-secondary)') }}>
+                          <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>{format(parseISO(log.timestamp), 'dd/MM HH:mm:ss')}</td>
+                          <td>{log.type.toUpperCase()}</td>
+                          <td style={{ fontWeight: 800 }}>{log.source}</td>
+                          <td style={{ padding: '10px' }}>
+                            {log.message}
+                            {log.detailed && (
+                              <div style={{ marginTop: '4px', fontSize: '0.55rem', opacity: 0.7, maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                DETALLE: {log.detailed}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
           </div>
         )}
