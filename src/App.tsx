@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.60';
+const APP_VERSION = '2.3.61';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -287,7 +287,8 @@ const App: React.FC = () => {
     clientName: '',
     invoiceNumber: '',
     totalAmount: '',
-    totalHours: ''
+    totalHours: '',
+    monthlyGoal: ''
   });
 
   const addLog = (type: SystemLog['type'], source: string, message: string, detailed?: string) => {
@@ -712,7 +713,7 @@ const App: React.FC = () => {
 
     return Object.keys(groups)
       .sort((a, b) => b.localeCompare(a)) 
-      .map(key => groups[key]);
+      .map(key => ({ ...groups[key], key }));
   }, [billedMonths, settings.monthlyGoal]);
 
   const activeSession = sessions.find(s => s.id === activeSessionId);
@@ -1301,12 +1302,25 @@ const App: React.FC = () => {
       invoiceNumber: manualInvoice.invoiceNumber ? parseInt(manualInvoice.invoiceNumber) : undefined,
       sessionsIds: [], // Empty to denote manual entry
       clientName: manualInvoice.clientName,
-      periodMonth: manualInvoice.periodMonth
+      periodMonth: manualInvoice.periodMonth,
+      monthlyGoal: manualInvoice.monthlyGoal ? parseFloat(manualInvoice.monthlyGoal) : settings.monthlyGoal
     };
 
     const newBilled = [...billedMonths, newInvoice];
     setBilledMonths(newBilled);
     setShowManualInvoiceModal(false);
+  };
+
+  const handleUpdateMonthlyGoal = (monthKey: string, newGoal: number) => {
+    setBilledMonths(prev => prev.map(m => {
+      const d = m.periodMonth ? parseISO(`${m.periodMonth}-01`) : parseISO(m.date);
+      const key = format(d, 'yyyy-MM');
+      if (key === monthKey) {
+        return { ...m, monthlyGoal: newGoal };
+      }
+      return m;
+    }));
+    addLog('info', 'CONFIG', `Objetivo mensual para ${monthKey} actualizado a $${formatCurrency(newGoal)}`);
   };
 
   // --- WIDGET LOGIC & CONFIG ---
@@ -2121,7 +2135,19 @@ const App: React.FC = () => {
                          </div>
                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }} className="mono-font">
                            <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>LIQUIDADO: ${formatCurrency(stat.total)}</span>
-                           <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>OBJETIVO: ${formatCurrency(stat.goal)}</span>
+                            <span 
+                              onClick={() => {
+                                const val = prompt(`Nuevo objetivo para ${stat.month}:`, stat.goal.toString());
+                                if (val && !isNaN(parseFloat(val))) {
+                                  handleUpdateMonthlyGoal(stat.key, parseFloat(val));
+                                }
+                              }}
+                              className="hover-bright"
+                              style={{ fontSize: '0.65rem', color: 'var(--accent-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              OBJETIVO: ${formatCurrency(stat.goal)} <Pencil size={10} />
+                            </span>
+
                          </div>
                        </div>
                      );
@@ -2833,6 +2859,11 @@ const App: React.FC = () => {
                   <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem' }}>Horas (Opcional)</label>
                   <input type="number" style={{ width: '100%' }} step="0.5" placeholder="Ej. 25.5" value={manualInvoice.totalHours} onChange={e => setManualInvoice({ ...manualInvoice, totalHours: e.target.value })} />
                 </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem' }}>Objetivo Mensual ($) - Opcional</label>
+                <input type="number" style={{ width: '100%' }} placeholder={`Por defecto: ${settings.monthlyGoal}`} value={manualInvoice.monthlyGoal} onChange={e => setManualInvoice({ ...manualInvoice, monthlyGoal: e.target.value })} />
               </div>
             </div>
 
