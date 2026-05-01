@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.59';
+const APP_VERSION = '2.3.60';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -121,6 +121,7 @@ interface BilledMonth {
   clientName?: string;
   serviceStart?: string;
   serviceEnd?: string;
+  periodMonth?: string; // Format: yyyy-MM
 }
 
 interface AppSettings {
@@ -282,6 +283,7 @@ const App: React.FC = () => {
   const [showManualInvoiceModal, setShowManualInvoiceModal] = useState(false);
   const [manualInvoice, setManualInvoice] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
+    periodMonth: format(new Date(), 'yyyy-MM'),
     clientName: '',
     invoiceNumber: '',
     totalAmount: '',
@@ -696,7 +698,8 @@ const App: React.FC = () => {
     const groups: { [key: string]: { month: string, total: number, goal: number, hours: number } } = {};
 
     activeBilled.forEach(m => {
-      const d = parseISO(m.date);
+      // Prioritize the explicit periodMonth (month of work), fallback to emission date
+      const d = m.periodMonth ? parseISO(`${m.periodMonth}-01`) : parseISO(m.date);
       const key = format(d, 'yyyy-MM'); 
       const display = format(d, 'MMMM yyyy').toUpperCase();
       
@@ -1090,7 +1093,8 @@ const App: React.FC = () => {
         clientId: client.id,
         clientName: client.name,
         serviceStart: earliest,
-        serviceEnd: latest
+        serviceEnd: latest,
+        periodMonth: format(parseISO(earliest), 'yyyy-MM')
       };
 
       setBilledMonths([newInvoice, ...billedMonths]);
@@ -1296,7 +1300,8 @@ const App: React.FC = () => {
       status: 'ACTIVE',
       invoiceNumber: manualInvoice.invoiceNumber ? parseInt(manualInvoice.invoiceNumber) : undefined,
       sessionsIds: [], // Empty to denote manual entry
-      clientName: manualInvoice.clientName
+      clientName: manualInvoice.clientName,
+      periodMonth: manualInvoice.periodMonth
     };
 
     const newBilled = [...billedMonths, newInvoice];
@@ -2798,9 +2803,15 @@ const App: React.FC = () => {
             </p>
             
             <div className="settings-group" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem' }}>Fecha de Emisión</label>
-                <input type="date" style={{ width: '100%' }} value={manualInvoice.date} onChange={e => setManualInvoice({ ...manualInvoice, date: e.target.value })} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem' }}>Fecha de Emisión</label>
+                  <input type="date" style={{ width: '100%' }} value={manualInvoice.date} onChange={e => setManualInvoice({ ...manualInvoice, date: e.target.value })} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem' }}>Mes de Trabajo</label>
+                  <input type="month" style={{ width: '100%' }} value={manualInvoice.periodMonth} onChange={e => setManualInvoice({ ...manualInvoice, periodMonth: e.target.value })} />
+                </div>
               </div>
               
               <div>
