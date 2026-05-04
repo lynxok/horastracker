@@ -11,12 +11,13 @@ import {
 import {
   format, differenceInSeconds, differenceInDays, startOfMonth, endOfMonth,
   startOfWeek, endOfWeek, startOfDay, endOfDay,
-  isWithinInterval, parseISO, subMonths
+  isWithinInterval, parseISO, subMonths, isSameMonth, addMonths
 } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.64';
+const APP_VERSION = '2.3.65';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
