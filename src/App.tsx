@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.67';
+const APP_VERSION = '2.3.68';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -275,6 +275,9 @@ const App: React.FC = () => {
   const [arcaDetailedError, setArcaDetailedError] = useState('');
   const [editClientId, setEditClientId] = useState<string | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  
+  const [editingGoal, setEditingGoal] = useState<{ key: string, month: string, goal: number } | null>(null);
+  const [tempGoalValue, setTempGoalValue] = useState<string>('');
   
   const [tempClient, setTempClient] = useState<Client>({
     id: '', name: '', cuit: '', domicilio: '', condicionIva: 'IVA Responsable Inscripto', hourlyRate: 5000, workIp: ''
@@ -2151,10 +2154,8 @@ const App: React.FC = () => {
                            <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>LIQUIDADO: ${formatCurrency(stat.total)}</span>
                             <span 
                               onClick={() => {
-                                const val = prompt(`Nuevo objetivo para ${stat.month}:`, stat.goal.toString());
-                                if (val && !isNaN(parseFloat(val))) {
-                                  handleUpdateMonthlyGoal(stat.key, parseFloat(val));
-                                }
+                                setEditingGoal({ key: stat.key, month: stat.month, goal: stat.goal });
+                                 setTempGoalValue(stat.goal.toString());
                               }}
                               className="hover-bright"
                               style={{ fontSize: '0.65rem', color: 'var(--accent-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
@@ -2943,10 +2944,52 @@ const App: React.FC = () => {
               </button>
               <button className="btn-primary" onClick={() => setShowCategoryModal(false)} style={{ padding: '10px 40px' }}>CERRAR</button>
             </div>
+    </div>
+
+      {/* --- GOAL EDITING MODAL --- */}
+      {editingGoal && (
+        <div className="modal-overlay" onClick={() => setEditingGoal(null)}>
+          <div className="modal-content premium-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', width: '100%' }}>
+            <h2 className="mono-font" style={{ color: 'var(--accent-color)', marginBottom: '15px', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <BarChart3 size={20} /> ACTUALIZAR OBJETIVO
+            </h2>
+            <p className="mono-font" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+              Mes: {editingGoal.month}
+            </p>
+            
+            <div className="settings-group">
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem' }}>Nuevo Objetivo Mensual ($)</label>
+              <input 
+                type="number" 
+                autoFocus
+                style={{ width: '100%' }} 
+                value={tempGoalValue} 
+                onChange={e => setTempGoalValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const val = parseFloat(tempGoalValue);
+                    if (!isNaN(val)) {
+                      handleUpdateMonthlyGoal(editingGoal.key, val);
+                      setEditingGoal(null);
+                    }
+                  }
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '25px' }}>
+              <button className="btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => {
+                const val = parseFloat(tempGoalValue);
+                if (!isNaN(val)) {
+                  handleUpdateMonthlyGoal(editingGoal.key, val);
+                  setEditingGoal(null);
+                }
+              }}>GUARDAR</button>
+              <button className="btn-secondary" onClick={() => setEditingGoal(null)}>CANCELAR</button>
+            </div>
           </div>
         </div>
       )}
-
     </div>
   );
 };
