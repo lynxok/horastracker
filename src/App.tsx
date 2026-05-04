@@ -17,7 +17,7 @@ import { es } from 'date-fns/locale';
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.65';
+const APP_VERSION = '2.3.66';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -38,7 +38,7 @@ declare global {
       onTrayAction: (callback: (action: string, data?: any) => void) => void;
       syncTrayData: (data: { clients: any[]; activeSession: any | null }) => void;
       generateArcaCSR: (data: any) => Promise<{ success: boolean; folder?: string; keyPath?: string; csrPath?: string; msg?: string; error?: string }>;
-      testArcaConnection: (settings: any) => Promise<{ success: boolean; status?: any; error?: string; detailed?: string }>;
+      testArcaConnection: (settings: any) => Promise<{ success: boolean; status?: any; error?: string; detailed?: string; certInfo?: string }>;
       generateArcaInvoice: (data: any) => Promise<{ success: boolean; cae?: string; numero?: number; filePath?: string; error?: string }>;
       generateArcaCreditNote: (data: any) => Promise<{ success: boolean; cae?: string; numero?: number; filePath?: string; error?: string }>;
       regenerateArcaPDF: (data: { billedMonth: BilledMonth; settings: AppSettings }) => Promise<{ success: boolean; filePath?: string; error?: string }>;
