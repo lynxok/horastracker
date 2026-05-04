@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.61';
+const APP_VERSION = '2.3.62';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -2164,7 +2164,7 @@ const App: React.FC = () => {
                      <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
                        <div>
                          <div className="mono-font" style={{ fontWeight: 800, fontSize: '0.9rem', color: m.status === 'ACTIVE' ? 'var(--success)' : 'var(--danger)' }}>
-                           {m.status === 'ACTIVE' ? 'RECIBO C' : 'ANULADA'} #{m.invoiceNumber}
+                           {m.status === 'ACTIVE' ? 'RECIBO C' : 'ANULADA'} #{m.invoiceNumber || 'N/A'}
                          </div>
                          <div className="mono-font" style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
                            FECHA: {format(parseISO(m.date), 'dd/MM/yyyy')} | PERIODO: {m.month}
@@ -2186,6 +2186,16 @@ const App: React.FC = () => {
                        {m.filePath && (
                          <button onClick={() => window.electronAPI?.openFile(m.filePath!)} className="btn-secondary" style={{ fontSize: '0.6rem', padding: '6px 12px' }}>
                            ABRIR PDF
+                         </button>
+                       )}
+                       {m.status === 'ACTIVE' && m.cae && (
+                         <button 
+                           onClick={() => handleRegeneratePDF(m)} 
+                           className="btn-secondary" 
+                           style={{ fontSize: '0.6rem', padding: '6px 12px', borderColor: 'var(--accent-color)', color: 'var(--accent-color)' }}
+                           title="Regenerar el PDF limpio sin prefijos"
+                         >
+                           REGENERAR PDF
                          </button>
                        )}
                        {m.status === 'ACTIVE' && (

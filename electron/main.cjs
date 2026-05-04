@@ -503,7 +503,7 @@ ipcMain.handle('arca-regenerate-pdf', async (event, { billedMonth, settings }) =
     if (!fs.existsSync(folder)) fs.mkdirSync(folder, { recursive: true });
 
     const date = billedMonth.date.replace(/-/g, '').substring(0, 8);
-    const fileName = `Factura_${billedMonth.invoiceNumber}_${date}_REFIX.pdf`;
+    const fileName = `Factura_${billedMonth.invoiceNumber}_${date}.pdf`;
     const fullPath = path.join(folder, fileName);
 
     const client = settings.clients.find(c => c.name === billedMonth.clientName) || settings.clients[0];
