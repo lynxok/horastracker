@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.63';
+const APP_VERSION = '2.3.64';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -1037,13 +1037,13 @@ const App: React.FC = () => {
     
     const res = await window.electronAPI?.testArcaConnection(settings);
     if (res.success) {
-      setArcaStatus({ msg: `CONEXIÓN EXITOSA. Servidor App: ${res.status.AppServer}, DB: ${res.status.DbServer}`, type: 'success' });
+      setArcaStatus({ msg: `CONEXIÓN EXITOSA. ${res.certInfo}`, type: 'success' });
       setArcaDetailedError('');
-      addLog('info', 'ARCA', 'Prueba de conexión exitosa');
+      addLog('info', 'ARCA', `Prueba de conexión exitosa: ${res.certInfo}`);
     } else {
-      setArcaStatus({ msg: `ERROR DE CONEXIÓN: ${res.error}`, type: 'error' });
+      setArcaStatus({ msg: `ERROR: ${res.error}. ${res.certInfo || ''}`, type: 'error' });
       setArcaDetailedError(res.detailed || 'No hay detalles técnicos adicionales.');
-      addLog('error', 'ARCA', `Fallo en prueba de conexión: ${res.error}`, res.detailed);
+      addLog('error', 'ARCA', `Fallo en prueba de conexión: ${res.error}. ${res.certInfo || ''}`, res.detailed);
     }
     setArcaTesting(false);
   };

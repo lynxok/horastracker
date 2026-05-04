@@ -722,8 +722,10 @@ function getAfipInstance(arcaInfo) {
     fs.mkdirSync(ticketsDir, { recursive: true });
   }
 
+  const cleanCuit = arcaInfo.cuit.replace(/[^0-9]/g, '');
+  
   return new Afip({
-    cuit: parseInt(arcaInfo.cuit.replace(/-/g, '')),
+    cuit: parseInt(cleanCuit),
     cert: fs.readFileSync(certPath, 'utf8'),
     key: fs.readFileSync(keyPath, 'utf8'),
     production: arcaInfo.productionMode === true,
@@ -883,16 +885,36 @@ ipcMain.handle('arca-test-connection', async (event, settings) => {
     const afip = getAfipInstance(settings.arcaInfo);
     const status = await afip.electronicBillingService.getServerStatus();
     
+    // Diagnostic info about the certificate
+    let certInfo = "No se pudo leer la info del certificado";
+    try {
+      const certPath = settings.arcaInfo.certPath;
+      if (fs.existsSync(certPath)) {
+        const certData = fs.readFileSync(certPath, 'utf8');
+        const cert = forge.pki.certificateFromPem(certData);
+        const subject = cert.subject.getField('CN') ? cert.subject.getField('CN').value : 'N/A';
+        const expiry = cert.validity.notAfter;
+        certInfo = `Certificado para: ${subject} | Vence: ${expiry.toLocaleDateString('es-AR')}`;
+      }
+    } catch (e) {
+      certInfo = `Error leyendo cert: ${e.message}`;
+    }
+    
     // Check if services are UP
     const result = status.FEDummyResult || status;
     if (result && result.AppServer === 'OK') {
-      return { success: true, status: result };
+      return { 
+        success: true, 
+        status: result,
+        certInfo
+      };
     } else {
       return { 
         success: false, 
         error: 'El servidor de AFIP reporta problemas.', 
         status,
-        detailed: JSON.stringify(status, null, 2)
+        detailed: JSON.stringify(status, null, 2),
+        certInfo
       };
     }
   } catch (error) {
@@ -909,7 +931,8 @@ ipcMain.handle('arca-test-connection', async (event, settings) => {
     return { 
       success: false, 
       error: error.message || 'Error al conectar con ARCA/AFIP.',
-      detailed: JSON.stringify(detailedError, null, 2)
+      detailed: JSON.stringify(detailedError, null, 2),
+      certInfo: certInfo || 'No disponible'
     };
   }
 });
