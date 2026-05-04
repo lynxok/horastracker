@@ -6,7 +6,7 @@ import {
   Trash2, Shield, Activity, X,
   Minus, Maximize2, Pencil, BarChart3, Clock,
   Lock, Bird, Zap, Terminal, Hourglass, Cpu, GripVertical, Database, Search,
-  Plus, FileText, Pause
+  Plus, FileText, Pause, Check
 } from 'lucide-react';
 import {
   format, differenceInSeconds, differenceInDays, startOfMonth, endOfMonth,
@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.62';
+const APP_VERSION = '2.3.63';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -895,6 +895,14 @@ const App: React.FC = () => {
         rate: activeClient.hourlyRate
       });
     }
+    setShowManualEntry(true);
+  };
+
+  const toggleInvoicedStatus = (sessionId: string) => {
+    setSessions(prev => prev.map(s => 
+      s.id === sessionId ? { ...s, invoiced: !s.invoiced } : s
+    ));
+    addLog('info', 'RELOJ', `Estado de facturación de sesión actualizado manualmente`);
   };
 
   const handleRegeneratePDF = async (bm: BilledMonth) => {
@@ -1829,6 +1837,7 @@ const App: React.FC = () => {
                               +${formatCurrency((differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600) * s.rate)}
                             </div>
                             <div style={{ display: 'flex', gap: '8px' }}>
+                              <button onClick={() => toggleInvoicedStatus(s.id)} style={{ background: 'transparent', border: 'none', color: 'var(--success)', cursor: 'pointer', padding: '4px', opacity: 0.5 }} title="Marcar como Facturado"><Check size={16} /></button>
                               <button onClick={() => openManualModal(s)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', padding: '4px', opacity: 0.5 }} title="Editar"><Pencil size={16} /></button>
                               <button onClick={() => deleteSession(s.id)} style={{ background: 'transparent', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px', opacity: 0.5 }} title="Eliminar"><Trash2 size={16} /></button>
                             </div>
@@ -1861,7 +1870,12 @@ const App: React.FC = () => {
                             <div style={{ color: 'var(--text-secondary)', fontWeight: 700, minWidth: '100px', textAlign: 'right' }} className="mono-font">
                               [FACTURADO]
                             </div>
-                            <Lock size={14} style={{ opacity: 0.3 }} />
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <button onClick={() => toggleInvoicedStatus(s.id)} style={{ background: 'transparent', border: 'none', color: 'var(--warning)', cursor: 'pointer', padding: '4px', opacity: 0.5 }} title="Quitar estado Facturado">
+                                <History size={16} />
+                              </button>
+                              <Lock size={14} style={{ opacity: 0.3 }} />
+                            </div>
                           </div>
                         </div>
                       ))}
