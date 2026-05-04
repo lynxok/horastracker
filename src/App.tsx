@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.68';
+const APP_VERSION = '2.3.69';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -2944,7 +2944,9 @@ const App: React.FC = () => {
               </button>
               <button className="btn-primary" onClick={() => setShowCategoryModal(false)} style={{ padding: '10px 40px' }}>CERRAR</button>
             </div>
-    </div>
+          </div>
+        </div>
+      )}
 
       {/* --- GOAL EDITING MODAL --- */}
       {editingGoal && (
