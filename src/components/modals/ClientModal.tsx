@@ -9,6 +9,8 @@ interface Client {
   domicilio: string;
   condicionIva: string;
   workIp?: string;
+  email?: string;
+  phone?: string;
 }
 
 interface ClientModalProps {
@@ -67,6 +69,18 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                   <option>Consumidor Final</option>
                   <option>Responsable Monotributo</option>
                 </select>
+             </div>
+             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                   <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>EMAIL DE FACTURACIÓN</label>
+                   <input type="email" value={tempClient.email || ''} onChange={e => setTempClient({...tempClient, email: e.target.value})} placeholder="ejemplo@cliente.com"
+                     style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
+                </div>
+                <div>
+                   <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>WHATSAPP (Sin +)</label>
+                   <input type="text" value={tempClient.phone || ''} onChange={e => setTempClient({...tempClient, phone: e.target.value})} placeholder="549343..."
+                     style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
+                </div>
              </div>
              <div>
                 <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>IP PÚBLICA DE ZONA DE TRABAJO</label>

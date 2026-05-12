@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.71';
+const APP_VERSION = '2.3.72';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -79,6 +79,8 @@ interface Client {
   condicionIva: string;
   hourlyRate: number;
   workIp?: string;
+  email?: string;
+  phone?: string;
 }
 
 interface WorkSession {
@@ -280,7 +282,7 @@ const App: React.FC = () => {
   const [tempGoalValue, setTempGoalValue] = useState<string>('');
   
   const [tempClient, setTempClient] = useState<Client>({
-    id: '', name: '', cuit: '', domicilio: '', condicionIva: 'IVA Responsable Inscripto', hourlyRate: 5000, workIp: ''
+    id: '', name: '', cuit: '', domicilio: '', condicionIva: 'IVA Responsable Inscripto', hourlyRate: 5000, workIp: '', email: '', phone: ''
   });
 
   const [showManualInvoiceModal, setShowManualInvoiceModal] = useState(false);
@@ -1913,38 +1915,77 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="premium-card" style={{ border: '1px solid var(--accent-secondary)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <div className="mono-font" style={{ color: 'var(--accent-secondary)', fontSize: '0.8rem', fontWeight: 800 }}>META DE INGRESOS MENSUAL</div>
-                <div className="mono-font" style={{ fontSize: '0.8rem' }}>{Math.floor((monthlyStats.earnings / settings.monthlyGoal) * 100)}% COMPLETADO</div>
-              </div>
-              
-              <div className="revenue-progress-container">
-                <div 
-                  className="revenue-progress-bar" 
-                  style={{ width: `${Math.min(100, (monthlyStats.earnings / settings.monthlyGoal) * 100)}%` }}
-                ></div>
+            {/* Smart Insights Panel */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '16px' }}>
+              <div className="premium-card" style={{ border: '1px solid var(--accent-secondary)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <div className="mono-font" style={{ color: 'var(--accent-secondary)', fontSize: '0.8rem', fontWeight: 800 }}>META DE INGRESOS MENSUAL</div>
+                  <div className="mono-font" style={{ fontSize: '0.8rem' }}>{Math.floor((monthlyStats.earnings / settings.monthlyGoal) * 100)}% COMPLETADO</div>
+                </div>
+                
+                <div className="revenue-progress-container">
+                  <div 
+                    className="revenue-progress-bar" 
+                    style={{ width: `${Math.min(100, (monthlyStats.earnings / settings.monthlyGoal) * 100)}%` }}
+                  ></div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }} className="mono-font">
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>ACTUAL: </span>
+                    <span style={{ fontWeight: 800 }}>${formatCurrency(monthlyStats.earnings)}</span>
+                  </div>
+                  {settings.monthlyGoal > monthlyStats.earnings && (
+                    <div style={{ textAlign: 'center', border: '1px dashed var(--accent-secondary)', padding: '2px 12px', borderRadius: '4px' }}>
+                      <span style={{ fontSize: '0.6rem', color: 'var(--accent-secondary)' }}>FALTAN: </span>
+                      <span style={{ fontWeight: 800, color: 'var(--accent-secondary)' }}>
+                        {((settings.monthlyGoal - monthlyStats.earnings) / (settings.clients.find(c => c.id === settings.selectedClientId)?.hourlyRate || settings.clients[0].hourlyRate)).toLocaleString('es-AR', { maximumFractionDigits: 1 })} HS
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>OBJETIVO: </span>
+                    <span style={{ fontWeight: 800 }}>${formatCurrency(settings.monthlyGoal)}</span>
+                  </div>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }} className="mono-font">
-                <div>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>ACTUAL: </span>
-                  <span style={{ fontWeight: 800 }}>${formatCurrency(monthlyStats.earnings)}</span>
-                </div>
-                {settings.monthlyGoal > monthlyStats.earnings && (
-                  <div style={{ textAlign: 'center', border: '1px dashed var(--accent-secondary)', padding: '2px 12px', borderRadius: '4px' }}>
-                    <span style={{ fontSize: '0.6rem', color: 'var(--accent-secondary)' }}>FALTAN: </span>
-                    <span style={{ fontWeight: 800, color: 'var(--accent-secondary)' }}>
-                      {((settings.monthlyGoal - monthlyStats.earnings) / (settings.clients.find(c => c.id === settings.selectedClientId)?.hourlyRate || settings.clients[0].hourlyRate)).toLocaleString('es-AR', { maximumFractionDigits: 1 })} HS
-                    </span>
-                  </div>
-                )}
-                <div>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>OBJETIVO: </span>
-                  <span style={{ fontWeight: 800 }}>${formatCurrency(settings.monthlyGoal)}</span>
-                </div>
+              <div className="premium-card" style={{ borderLeft: '4px solid var(--accent-color)', background: 'rgba(14, 165, 233, 0.05)' }}>
+                 <div className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--accent-color)', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                   <Zap size={14} /> SMART INSIGHTS
+                 </div>
+                 {(() => {
+                   const daysPassed = now.getDate();
+                   const totalDays = endOfMonth(now).getDate();
+                   const projected = (monthlyStats.earnings / daysPassed) * totalDays;
+                   const diff = projected - settings.monthlyGoal;
+                   const isAhead = diff >= 0;
+
+                   return (
+                     <div className="mono-font">
+                        <div style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>RITMO DIARIO ACTUAL</div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px' }}>${formatCurrency(monthlyStats.earnings / daysPassed)} <span style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>/ DÍA</span></div>
+                        
+                        <div style={{ padding: '12px', background: isAhead ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderRadius: '4px', border: `1px solid ${isAhead ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}` }}>
+                           <div style={{ fontSize: '0.6rem', color: isAhead ? 'var(--success)' : 'var(--danger)', fontWeight: 800 }}>ESTADO DE LA META</div>
+                           <div style={{ fontSize: '0.8rem', fontWeight: 800, marginTop: '4px' }}>
+                             {isAhead ? '📈 SUPERÁVIT PREVISTO' : '📉 DÉFICIT PREVISTO'}
+                           </div>
+                           <div style={{ fontSize: '1rem', fontWeight: 900, marginTop: '2px', color: isAhead ? 'var(--success)' : 'var(--danger)' }}>
+                             ${formatCurrency(Math.abs(diff))}
+                           </div>
+                           <div style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.4 }}>
+                             {isAhead 
+                               ? 'Vas por buen camino. A este ritmo, superarás tu objetivo mensual con creces.' 
+                               : `Te faltan aprox. ${((Math.abs(diff)) / (settings.clients.find(c => c.id === settings.selectedClientId)?.hourlyRate || settings.clients[0].hourlyRate)).toFixed(1)} horas extra este mes para alcanzar la meta.`}
+                           </div>
+                        </div>
+                     </div>
+                   );
+                 })()}
               </div>
             </div>
+
             
             {/* --- PROYECCIÓN MONOTRIBUTO --- */}
             <div className="premium-card" style={{ border: '1px solid var(--accent-color)', background: 'rgba(14, 165, 233, 0.03)' }}>
@@ -2038,10 +2079,15 @@ const App: React.FC = () => {
                   <div className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>SIN COMPROBANTES REGISTRADOS</div>
                 ) : (
                   billedMonths.sort((a, b) => b.date.localeCompare(a.date)).map(bm => (
-                    <div key={bm.id} className="premium-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-                        <div style={{ background: 'var(--success)', padding: '8px', borderRadius: '4px' }}>
-                           <Activity size={18} color="black" />
+                    <div key={bm.id} className="premium-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderLeft: bm.status === 'CANCELLED' ? '4px solid var(--danger)' : '4px solid var(--success)', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                        <div style={{ background: bm.status === 'CANCELLED' ? 'var(--danger)' : 'var(--success)', padding: '8px', borderRadius: '4px', cursor: 'pointer' }} onClick={() => {
+                          // Toggle status for payment tracking
+                          const newBilled = billedMonths.map(m => m.id === bm.id ? { ...m, status: m.status === 'ACTIVE' ? 'CANCELLED' : 'ACTIVE' } : m);
+                          setBilledMonths(newBilled);
+                          addLog('info', 'PAGOS', `Estado de comprobante ${bm.invoiceNumber} cambiado a ${bm.status === 'ACTIVE' ? 'COBRADO' : 'PENDIENTE'}`);
+                        }} title="Cambiar estado de cobro">
+                           {bm.status === 'CANCELLED' ? <X size={18} color="white" /> : <Check size={18} color="black" />}
                         </div>
                         <div>
                           <div className="mono-font" style={{ fontSize: '0.8rem', fontWeight: 800 }}>{bm.clientName || 'Cliente General'}</div>
@@ -2050,11 +2096,49 @@ const App: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
-                        <div style={{ textAlign: 'right' }}>
-                          <div className="mono-font" style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--success)' }}>${formatCurrency(bm.totalAmount)}</div>
+                      
+                      <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+                        {/* Automation Buttons */}
+                        {(() => {
+                           const client = settings.clients.find(c => c.name === bm.clientName);
+                           return (
+                             <div style={{ display: 'flex', gap: '8px' }}>
+                               {client?.phone && (
+                                 <button 
+                                   onClick={() => {
+                                     const msg = `Hola! Te envío la factura ${bm.invoiceNumber} de ${format(parseISO(bm.date), "MMMM")}. El total es $${formatCurrency(bm.totalAmount)}. Saludos!`;
+                                     window.open(`https://wa.me/${client.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                                   }}
+                                   className="btn-secondary" 
+                                   style={{ padding: '8px', color: '#25D366', borderColor: 'rgba(37, 211, 102, 0.2)' }}
+                                   title="Enviar por WhatsApp"
+                                 >
+                                   <Plus size={14} />
+                                 </button>
+                               )}
+                               {client?.email && (
+                                 <button 
+                                   onClick={() => {
+                                     const subject = `Factura ${bm.invoiceNumber} - ${bm.clientName}`;
+                                     const body = `Hola,\n\nAdjunto la factura correspondiente a los servicios del mes de ${format(parseISO(bm.date), "MMMM")}.\n\nTotal: $${formatCurrency(bm.totalAmount)}\n\nSaludos,\n${settings.arcaInfo.nombreEmisor}`;
+                                     window.open(`mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+                                   }}
+                                   className="btn-secondary" 
+                                   style={{ padding: '8px', color: 'var(--accent-color)', borderColor: 'rgba(14, 165, 233, 0.2)' }}
+                                   title="Enviar por Email"
+                                 >
+                                   <FileText size={14} />
+                                 </button>
+                               )}
+                             </div>
+                           );
+                        })()}
+
+                        <div style={{ textAlign: 'right', minWidth: '100px' }}>
+                          <div className="mono-font" style={{ fontSize: '0.9rem', fontWeight: 800, color: bm.status === 'CANCELLED' ? 'var(--danger)' : 'var(--success)' }}>${formatCurrency(bm.totalAmount)}</div>
                           <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>{bm.totalHours.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} HS</div>
                         </div>
+
                         <div style={{ display: 'flex', gap: '8px' }}>
                           {bm.filePath && (
                             <button 
@@ -2063,16 +2147,6 @@ const App: React.FC = () => {
                               style={{ fontSize: '0.6rem', padding: '8px 12px' }}
                             >
                               VER PDF
-                            </button>
-                          )}
-                          {bm.cae && (
-                            <button 
-                              onClick={() => handleRegeneratePDF(bm)}
-                              className="btn-secondary" 
-                              style={{ fontSize: '0.6rem', padding: '8px 12px', borderColor: 'var(--accent-color)', color: 'var(--accent-color)' }}
-                              title="Corrige el encabezado del PDF usando los datos actuales de configuración"
-                            >
-                              REGENERAR PDF
                             </button>
                           )}
                           <button 
