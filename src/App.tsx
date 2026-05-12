@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.83';
+const APP_VERSION = '2.3.84';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -660,11 +660,28 @@ const App: React.FC = () => {
   
   const workDaysUnion = useMemo(() => {
     const union = new Set<number>();
+    const activeClientIds = new Set(
+      sessions
+        .filter(s => {
+          const sStart = parseISO(s.startTime);
+          return sStart >= startOfMonth(now) && sStart <= endOfMonth(now);
+        })
+        .map(s => s.clientId)
+    );
+    // Include currently selected client even if no sessions yet
+    activeClientIds.add(settings.selectedClientId);
+
     settings.clients.forEach(c => {
-      (c.workDays || [1,2,3,4,5]).forEach(d => union.add(d));
+      if (activeClientIds.has(c.id)) {
+        (c.workDays || [1,2,3,4,5]).forEach(d => union.add(d));
+      }
     });
+    
+    // Fallback if no active clients found (shouldn't happen due to selectedClientId)
+    if (union.size === 0) [1,2,3,4,5].forEach(d => union.add(d));
+    
     return Array.from(union).sort();
-  }, [settings.clients]);
+  }, [settings.clients, sessions, now, settings.selectedClientId]);
   
   // --- SMART AVERAGING LOGIC (Refined with Toggle) ---
   const smartDailyStats = useMemo(() => {
@@ -1978,7 +1995,7 @@ const App: React.FC = () => {
                <div className="premium-card" style={{ borderLeft: '3px solid var(--accent-secondary)' }}>
                  <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>PROYECCIÓN CIERRE</div>
                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-secondary)' }} className="mono-font">
-                   ${formatCurrency(smartDailyStats.avgEarnings * (settings.smartStatsMode === 'worked' ? endOfMonth(now).getDate() : countWorkDaysInRange(startOfMonth(now), endOfMonth(now), workDaysUnion)))}
+                   ${formatCurrency(smartDailyStats.avgEarnings * countWorkDaysInRange(startOfMonth(now), endOfMonth(now), workDaysUnion))}
                  </div>
               </div>
               <div className="premium-card" style={{ borderLeft: '3px solid var(--success)' }}>
@@ -2042,8 +2059,8 @@ const App: React.FC = () => {
                     </div>
                   </div>
                  {(() => {
-                    const totalDays = settings.smartStatsMode === 'worked' ? endOfMonth(now).getDate() : countWorkDaysInRange(startOfMonth(now), endOfMonth(now), workDaysUnion);
-                    const projected = smartDailyStats.avgEarnings * totalDays;
+                    const totalWorkDays = countWorkDaysInRange(startOfMonth(now), endOfMonth(now), workDaysUnion);
+                    const projected = smartDailyStats.avgEarnings * totalWorkDays;
                     const diff = projected - settings.monthlyGoal;
                     const isAhead = diff >= 0;
 
