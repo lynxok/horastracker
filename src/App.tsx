@@ -8,10 +8,9 @@ import {
   Lock, Bird, Zap, Terminal, Hourglass, Cpu, GripVertical, Database, Search,
   Plus, FileText, Pause, Check
 } from 'lucide-react';
-import {
   format, differenceInDays, startOfMonth, endOfMonth,
   startOfWeek, endOfWeek, isWithinInterval, subMonths, parseISO,
-  startOfDay, endOfDay
+  startOfDay, endOfDay, subDays
 } from 'date-fns';
 import { ThemeSelector } from './components/ThemeSelector';
 
@@ -642,43 +641,32 @@ const App: React.FC = () => {
   const weeklyStats = useMemo(() => calculateStatsForInterval(startOfWeek(now, { weekStartsOn: 1 }), endOfWeek(now, { weekStartsOn: 1 })), [sessions, now]);
   const monthlyStats = useMemo(() => calculateStatsForInterval(startOfMonth(now), endOfMonth(now)), [sessions, now]);
   
-  // --- SMART AVERAGING LOGIC (Requested by User) ---
+  // --- SMART AVERAGING LOGIC (Refined) ---
   const smartDailyStats = useMemo(() => {
     const currentDay = now.getDate();
     const daysBeforeToday = currentDay - 1;
     
+    // Estadísticas de días anteriores (del 1 al día anterior a hoy)
+    const statsUntilYesterday = daysBeforeToday > 0 
+      ? calculateStatsForInterval(startOfMonth(now), endOfDay(subDays(now, 1)))
+      : { hours: 0, earnings: 0 };
+    
     const hoursToday = dailyStats.hours;
-    const earningsToday = dailyStats.earnings;
+    const avgHoursBeforeToday = daysBeforeToday > 0 ? statsUntilYesterday.hours / daysBeforeToday : 0;
     
-    const totalHoursMonth = monthlyStats.hours;
-    const totalEarningsMonth = monthlyStats.earnings;
-    
-    if (daysBeforeToday === 0) {
+    // Si es el primer día del mes, o si lo que trabajamos hoy ya iguala/supera el promedio anterior:
+    if (daysBeforeToday === 0 || hoursToday >= avgHoursBeforeToday) {
       return {
-        avgHours: hoursToday,
-        avgEarnings: earningsToday,
-        daysToCount: 1,
-        isUsingToday: true
-      };
-    }
-    
-    const hoursBeforeToday = totalHoursMonth - hoursToday;
-    const earningsBeforeToday = totalEarningsMonth - earningsToday;
-    
-    const avgHoursBeforeToday = hoursBeforeToday / daysBeforeToday;
-    
-    // User logic: exclude today unless today >= avgPrevious
-    if (hoursToday >= avgHoursBeforeToday) {
-      return {
-        avgHours: totalHoursMonth / currentDay,
-        avgEarnings: totalEarningsMonth / currentDay,
+        avgHours: monthlyStats.hours / currentDay,
+        avgEarnings: monthlyStats.earnings / currentDay,
         daysToCount: currentDay,
         isUsingToday: true
       };
     } else {
+      // Si hoy todavía no llegamos al promedio, ignoramos hoy y usamos el promedio de ayer
       return {
         avgHours: avgHoursBeforeToday,
-        avgEarnings: earningsBeforeToday / daysBeforeToday,
+        avgEarnings: statsUntilYesterday.earnings / daysBeforeToday,
         daysToCount: daysBeforeToday,
         isUsingToday: false
       };
