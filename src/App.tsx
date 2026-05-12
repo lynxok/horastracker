@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.73';
+const APP_VERSION = '2.3.74';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -44,6 +44,7 @@ declare global {
       selectFolder: () => Promise<string | null>;
       selectFile: (filters: { name: string; extensions: string[] }[]) => Promise<string | null>;
       openFile: (path: string) => Promise<{ success: boolean; error?: string }>;
+      shareFile: (data: { filePath: string; method: 'whatsapp' | 'email'; contact: string; message: string }) => Promise<{ success: boolean; message?: string; error?: string }>;
       getArcaInvoiceInfo: (data: any) => Promise<{ success: boolean; info?: any; error?: string }>;
       getPublicIp: () => Promise<{ success: boolean; ip?: string; error?: string }>;
       getVersion: () => Promise<string>;
@@ -58,15 +59,15 @@ declare global {
       closeToast: () => void;
       onStartSessionFromToast: (callback: (client: any) => void) => void;
       toastActionStart: (client: any) => void;
-      openWidget: (mode?: string) => void;
+      openWidget: (mode: 'active' | 'idle') => void;
       closeWidget: () => void;
-      openBackupsFolder: () => Promise<{ success: boolean }>;
-      deepScanData: () => Promise<any[]>;
-      importDataFromPath: (path: string) => Promise<{ success: boolean; error?: string }>;
       requestSync: () => void;
-      onRequestSyncFromMain: (callback: (data: any) => void) => void;
+      openBackupsFolder: () => Promise<void>;
+      deepScanData: () => Promise<any>;
+      importDataFromPath: (path: string) => Promise<any>;
       setIgnoreMouseEvents: (ignore: boolean, options?: { forward: boolean }) => void;
       onMonitoringDataUpdate: (callback: (data: any) => void) => void;
+      onRequestSyncFromMain: (callback: () => void) => () => void;
     }
   }
 }
