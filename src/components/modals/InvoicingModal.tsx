@@ -1,6 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import { format, parseISO, differenceInSeconds } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { formatCurrency } from '../../utils/formatters';
 
 interface InvoicingModalProps {
@@ -27,7 +27,7 @@ export const InvoicingModal: React.FC<InvoicingModalProps> = ({
   const totalToInvoice = pendingSessions
     .filter(s => selectedSessions.has(s.id))
     .reduce((acc, s) => {
-      const hrs = differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600;
+      const hrs = Math.floor((parseISO(s.endTime!).getTime() - parseISO(s.startTime).getTime()) / 1000) / 3600;
       return acc + (hrs * s.rate);
     }, 0);
 
@@ -51,7 +51,7 @@ export const InvoicingModal: React.FC<InvoicingModalProps> = ({
             </thead>
             <tbody className="mono-font" style={{ fontSize: '0.8rem' }}>
               {pendingSessions.map(s => {
-                const hrs = differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600;
+                const hrs = Math.floor((parseISO(s.endTime!).getTime() - parseISO(s.startTime).getTime()) / 1000) / 3600;
                 return (
                   <tr key={s.id} onClick={() => onToggleSession(s.id)} style={{ cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', background: selectedSessions.has(s.id) ? 'rgba(14, 165, 233, 0.1)' : 'transparent' }}>
                     <td style={{ padding: '12px 10px' }}><input type="checkbox" checked={selectedSessions.has(s.id)} readOnly style={{ accentColor: 'var(--accent-color)' }} /></td>

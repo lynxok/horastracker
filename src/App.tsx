@@ -9,14 +9,14 @@ import {
   Plus, FileText, Pause, Check
 } from 'lucide-react';
 import {
-  format, differenceInSeconds, differenceInDays, startOfMonth, endOfMonth,
-  startOfWeek, endOfWeek, startOfDay, endOfDay,
-  isWithinInterval, parseISO, subMonths
+  format, differenceInDays, startOfMonth, endOfMonth,
+  startOfWeek, endOfWeek, isWithinInterval, subMonths, parseISO,
+  startOfDay, endOfDay
 } from 'date-fns';
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.69';
+const APP_VERSION = '2.3.70';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -599,7 +599,7 @@ const App: React.FC = () => {
             const activeSession = sessions.find(s => s.id === activeSessionId);
             if (activeSession) {
                const endTime = activeSession.pausedAt ? parseISO(activeSession.pausedAt) : currentDate;
-               const secs = differenceInSeconds(endTime, parseISO(activeSession.startTime)) - (activeSession.totalPausedSeconds || 0);
+               const secs = Math.floor((endTime.getTime() - parseISO(activeSession.startTime).getTime()) / 1000) - (activeSession.totalPausedSeconds || 0);
                window.electronAPI?.updateTray(`Turno Activo: ${formatDuration(secs / 3600)}`);
             }
           } else {
@@ -626,7 +626,7 @@ const App: React.FC = () => {
       const sStart = parseISO(s.startTime);
       const sEnd = s.endTime ? parseISO(s.endTime) : (s.pausedAt ? parseISO(s.pausedAt) : now);
       if (isWithinInterval(sStart, { start, end })) {
-        const secs = differenceInSeconds(sEnd, sStart) - (s.totalPausedSeconds || 0);
+        const secs = Math.floor((sEnd.getTime() - sStart.getTime()) / 1000) - (s.totalPausedSeconds || 0);
         totalSecs += secs;
         earnings += (secs / 3600) * s.rate;
       }
@@ -803,7 +803,7 @@ const App: React.FC = () => {
       if (activeS.pausedAt) {
         // Unpausing
         const pauseStart = parseISO(activeS.pausedAt);
-        const pauseDuration = differenceInSeconds(new Date(), pauseStart);
+        const pauseDuration = Math.floor((new Date().getTime() - pauseStart.getTime()) / 1000);
         nextSessions = sessions.map(s => s.id === activeSessionId ? { 
           ...s, 
           pausedAt: undefined, 
@@ -1056,8 +1056,8 @@ const App: React.FC = () => {
     const selectedList = sessions.filter(s => selectedSessions.has(s.id));
     if (selectedList.length === 0) return;
 
-    const totalAmount = selectedList.reduce((acc, s) => acc + (differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600) * s.rate, 0);
-    const totalHours = selectedList.reduce((acc, s) => acc + (differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600), 0);
+    const totalAmount = selectedList.reduce((acc, s) => acc + (Math.floor((parseISO(s.endTime!).getTime() - parseISO(s.startTime).getTime()) / 1000) / 3600) * s.rate, 0);
+    const totalHours = selectedList.reduce((acc, s) => acc + (Math.floor((parseISO(s.endTime!).getTime() - parseISO(s.startTime).getTime()) / 1000) / 3600), 0);
 
     const earliest = format(parseISO(selectedList.sort((a,b) => a.startTime.localeCompare(b.startTime))[0].startTime), 'yyyy-MM-dd');
     const latest = format(parseISO(selectedList.sort((a,b) => b.startTime.localeCompare(a.startTime))[0].endTime!), 'yyyy-MM-dd');
@@ -1430,7 +1430,7 @@ const App: React.FC = () => {
 
   const widgetConfig = getThemeWidgetConfig() as any;
   const activeS = sessions.find(s => s.id === activeSessionId);
-  const earnings = activeS ? (((differenceInSeconds(activeS.pausedAt ? parseISO(activeS.pausedAt) : now, parseISO(activeS.startTime)) - (activeS.totalPausedSeconds || 0))) / 3600) * activeS.rate : 0;
+  const earnings = activeS ? ((Math.floor(((activeS.pausedAt ? parseISO(activeS.pausedAt).getTime() : now.getTime()) - parseISO(activeS.startTime).getTime()) / 1000) - (activeS.totalPausedSeconds || 0)) / 3600) * activeS.rate : 0;
 
 
   if (isWidgetView) {
@@ -1533,7 +1533,7 @@ const App: React.FC = () => {
                 {isWidgetHovered && activeSessionId ? (
                   <span style={{ color: 'var(--success)' }}>${formatCurrency(earnings)}</span>
                 ) : (
-                  activeSessionId && activeS ? formatDuration((differenceInSeconds(activeS.pausedAt ? parseISO(activeS.pausedAt) : now, parseISO(activeS.startTime)) - (activeS.totalPausedSeconds || 0)) / 3600) : "00:00:00"
+                  activeSessionId && activeS ? formatDuration((Math.floor(((activeS.pausedAt ? parseISO(activeS.pausedAt).getTime() : now.getTime()) - parseISO(activeS.startTime).getTime()) / 1000) - (activeS.totalPausedSeconds || 0)) / 3600) : "00:00:00"
                 )}
               </div>
             </div>
@@ -1764,7 +1764,7 @@ const App: React.FC = () => {
                     )}
 
                     <div style={{ fontSize: '6rem', fontWeight: 800, letterSpacing: '-4px', marginBottom: '8px', lineHeight: 1, color: activeSessionId ? 'var(--text-primary)' : 'var(--text-secondary)' }} className="mono-font">
-                      {activeSessionId && activeSession ? formatDuration(differenceInSeconds(now, parseISO(activeSession.startTime)) / 3600) : "00:00:00"}
+                      {activeSessionId && activeSession ? formatDuration(Math.floor((now.getTime() - parseISO(activeSession.startTime).getTime()) / 1000) / 3600) : "00:00:00"}
                     </div>
                     {/* Quick Note Input in Main View */}
                     <input 
@@ -1834,10 +1834,10 @@ const App: React.FC = () => {
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                             <div style={{ textAlign: 'right', minWidth: '100px' }}>
-                              <span className="mono-font" style={{ fontWeight: 800, fontSize: '1rem' }}>{formatDuration(differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600)}</span>
+                              <span className="mono-font" style={{ fontWeight: 800, fontSize: '1rem' }}>{formatDuration(Math.floor((parseISO(s.endTime!).getTime() - parseISO(s.startTime).getTime()) / 1000) / 3600)}</span>
                             </div>
                             <div style={{ color: 'var(--success)', fontWeight: 700, minWidth: '100px', textAlign: 'right' }} className="mono-font">
-                              +${formatCurrency((differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600) * s.rate)}
+                              +${formatCurrency((Math.floor((parseISO(s.endTime!).getTime() - parseISO(s.startTime).getTime()) / 1000) / 3600) * s.rate)}
                             </div>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button onClick={() => toggleInvoicedStatus(s.id)} style={{ background: 'transparent', border: 'none', color: 'var(--success)', cursor: 'pointer', padding: '4px', opacity: 0.5 }} title="Marcar como Facturado"><Check size={16} /></button>
@@ -1868,7 +1868,7 @@ const App: React.FC = () => {
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                             <div style={{ textAlign: 'right', minWidth: '100px' }}>
-                              <span className="mono-font" style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-secondary)' }}>{formatDuration(differenceInSeconds(parseISO(s.endTime!), parseISO(s.startTime)) / 3600)}</span>
+                              <span className="mono-font" style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-secondary)' }}>{formatDuration(Math.floor((parseISO(s.endTime!).getTime() - parseISO(s.startTime).getTime()) / 1000) / 3600)}</span>
                             </div>
                             <div style={{ color: 'var(--text-secondary)', fontWeight: 700, minWidth: '100px', textAlign: 'right' }} className="mono-font">
                               [FACTURADO]
