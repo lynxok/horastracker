@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.77';
+const APP_VERSION = '2.3.80';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
