@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.80';
+const APP_VERSION = '2.3.81';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -151,6 +151,7 @@ interface AppSettings {
   widgetMode?: 'floating' | 'top-bar';
   widgetEnabled: boolean;
   monotributoCategories: { id: string; limit: number }[];
+  smartStatsMode?: 'calendar' | 'worked';
 }
 
 const INITIAL_MONOTRIBUTO_CATEGORIES = [
@@ -200,6 +201,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   widgetOpacity: 0.8,
   widgetMode: 'floating',
   widgetEnabled: true,
+  smartStatsMode: 'calendar',
   monotributoCategories: INITIAL_MONOTRIBUTO_CATEGORIES
 };
 
@@ -642,37 +644,55 @@ const App: React.FC = () => {
   const weeklyStats = useMemo(() => calculateStatsForInterval(startOfWeek(now, { weekStartsOn: 1 }), endOfWeek(now, { weekStartsOn: 1 })), [sessions, now]);
   const monthlyStats = useMemo(() => calculateStatsForInterval(startOfMonth(now), endOfMonth(now)), [sessions, now]);
   
-  // --- SMART AVERAGING LOGIC (Refined) ---
+  // --- SMART AVERAGING LOGIC (Refined with Toggle) ---
   const smartDailyStats = useMemo(() => {
     const currentDay = now.getDate();
-    const daysBeforeToday = currentDay - 1;
     
-    // Estadísticas de días anteriores (del 1 al día anterior a hoy)
-    const statsUntilYesterday = daysBeforeToday > 0 
+    // Contar días trabajados en el mes actual hasta hoy
+    const workedDaysThisMonth = new Set(
+      sessions
+        .filter(s => {
+          const sStart = parseISO(s.startTime);
+          return sStart >= startOfMonth(now) && sStart <= endOfMonth(now);
+        })
+        .map(s => format(parseISO(s.startTime), 'yyyy-MM-dd'))
+    );
+    
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const workedDaysBeforeToday = Array.from(workedDaysThisMonth).filter(d => d < todayStr).length;
+    const totalWorkedDaysSoFar = workedDaysThisMonth.size;
+
+    // Estadísticas de días anteriores
+    const statsUntilYesterday = workedDaysBeforeToday > 0 
       ? calculateStatsForInterval(startOfMonth(now), endOfDay(subDays(now, 1)))
       : { hours: 0, earnings: 0 };
     
     const hoursToday = dailyStats.hours;
-    const avgHoursBeforeToday = daysBeforeToday > 0 ? statsUntilYesterday.hours / daysBeforeToday : 0;
+    const isWorkedMode = settings.smartStatsMode === 'worked';
     
-    // Si es el primer día del mes, o si lo que trabajamos hoy ya iguala/supera el promedio anterior:
-    if (daysBeforeToday === 0 || hoursToday >= avgHoursBeforeToday) {
+    const divisorBeforeToday = isWorkedMode ? workedDaysBeforeToday : (currentDay - 1);
+    const divisorToday = isWorkedMode ? totalWorkedDaysSoFar : currentDay;
+    
+    const avgHoursBeforeToday = divisorBeforeToday > 0 ? statsUntilYesterday.hours / divisorBeforeToday : 0;
+    
+    if (divisorBeforeToday === 0 || hoursToday >= avgHoursBeforeToday) {
       return {
-        avgHours: monthlyStats.hours / currentDay,
-        avgEarnings: monthlyStats.earnings / currentDay,
-        daysToCount: currentDay,
-        isUsingToday: true
+        avgHours: monthlyStats.hours / divisorToday,
+        avgEarnings: monthlyStats.earnings / divisorToday,
+        daysToCount: divisorToday,
+        isUsingToday: true,
+        mode: settings.smartStatsMode || 'calendar'
       };
     } else {
-      // Si hoy todavía no llegamos al promedio, ignoramos hoy y usamos el promedio de ayer
       return {
         avgHours: avgHoursBeforeToday,
-        avgEarnings: statsUntilYesterday.earnings / daysBeforeToday,
-        daysToCount: daysBeforeToday,
-        isUsingToday: false
+        avgEarnings: statsUntilYesterday.earnings / divisorBeforeToday,
+        daysToCount: divisorBeforeToday,
+        isUsingToday: false,
+        mode: settings.smartStatsMode || 'calendar'
       };
     }
-  }, [now, dailyStats, monthlyStats]);
+  }, [now, dailyStats, monthlyStats, sessions, settings.smartStatsMode]);
   
   const twelveMonthStats = useMemo(() => {
     const twelveMonthsAgo = startOfMonth(subMonths(now, 11));
@@ -1984,9 +2004,22 @@ const App: React.FC = () => {
               </div>
 
               <div className="premium-card" style={{ borderLeft: '4px solid var(--accent-color)', background: 'rgba(14, 165, 233, 0.05)' }}>
-                 <div className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--accent-color)', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                   <Zap size={14} /> SMART INSIGHTS
-                 </div>
+                  <div className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--accent-color)', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Zap size={14} /> SMART INSIGHTS
+                    
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.05)', padding: '2px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <button 
+                        onClick={() => updateSetting('smartStatsMode', 'calendar')}
+                        title="Promedio sobre todos los días del mes transcurridos"
+                        style={{ fontSize: '0.55rem', padding: '2px 8px', border: 'none', borderRadius: '2px', background: settings.smartStatsMode === 'calendar' ? 'var(--accent-color)' : 'transparent', color: settings.smartStatsMode === 'calendar' ? '#000' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: 800, transition: 'all 0.2s' }}
+                      >MES</button>
+                      <button 
+                        onClick={() => updateSetting('smartStatsMode', 'worked')}
+                        title="Promedio sobre los días que realmente trabajaste"
+                        style={{ fontSize: '0.55rem', padding: '2px 8px', border: 'none', borderRadius: '2px', background: settings.smartStatsMode === 'worked' ? 'var(--accent-color)' : 'transparent', color: settings.smartStatsMode === 'worked' ? '#000' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: 800, transition: 'all 0.2s' }}
+                      >TRABAJADOS</button>
+                    </div>
+                  </div>
                  {(() => {
                                       const totalDays = endOfMonth(now).getDate();
                    const projected = smartDailyStats.avgEarnings * totalDays;
