@@ -642,6 +642,49 @@ const App: React.FC = () => {
   const weeklyStats = useMemo(() => calculateStatsForInterval(startOfWeek(now, { weekStartsOn: 1 }), endOfWeek(now, { weekStartsOn: 1 })), [sessions, now]);
   const monthlyStats = useMemo(() => calculateStatsForInterval(startOfMonth(now), endOfMonth(now)), [sessions, now]);
   
+  // --- SMART AVERAGING LOGIC (Requested by User) ---
+  const smartDailyStats = useMemo(() => {
+    const currentDay = now.getDate();
+    const daysBeforeToday = currentDay - 1;
+    
+    const hoursToday = dailyStats.hours;
+    const earningsToday = dailyStats.earnings;
+    
+    const totalHoursMonth = monthlyStats.hours;
+    const totalEarningsMonth = monthlyStats.earnings;
+    
+    if (daysBeforeToday === 0) {
+      return {
+        avgHours: hoursToday,
+        avgEarnings: earningsToday,
+        daysToCount: 1,
+        isUsingToday: true
+      };
+    }
+    
+    const hoursBeforeToday = totalHoursMonth - hoursToday;
+    const earningsBeforeToday = totalEarningsMonth - earningsToday;
+    
+    const avgHoursBeforeToday = hoursBeforeToday / daysBeforeToday;
+    
+    // User logic: exclude today unless today >= avgPrevious
+    if (hoursToday >= avgHoursBeforeToday) {
+      return {
+        avgHours: totalHoursMonth / currentDay,
+        avgEarnings: totalEarningsMonth / currentDay,
+        daysToCount: currentDay,
+        isUsingToday: true
+      };
+    } else {
+      return {
+        avgHours: avgHoursBeforeToday,
+        avgEarnings: earningsBeforeToday / daysBeforeToday,
+        daysToCount: daysBeforeToday,
+        isUsingToday: false
+      };
+    }
+  }, [now, dailyStats, monthlyStats]);
+  
   const twelveMonthStats = useMemo(() => {
     const twelveMonthsAgo = startOfMonth(subMonths(now, 11));
     const baseStats = calculateStatsForInterval(twelveMonthsAgo, endOfMonth(now));
@@ -1905,7 +1948,7 @@ const App: React.FC = () => {
               <div className="premium-card" style={{ borderLeft: '3px solid var(--accent-secondary)' }}>
                  <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>PROYECCIÓN CIERRE</div>
                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-secondary)' }} className="mono-font">
-                   ${formatCurrency((monthlyStats.earnings / (new Date().getDate())) * (endOfMonth(new Date()).getDate()))}
+                   ${formatCurrency(smartDailyStats.avgEarnings * endOfMonth(now).getDate())}
                  </div>
               </div>
               <div className="premium-card" style={{ borderLeft: '3px solid var(--success)' }}>
@@ -1956,16 +1999,22 @@ const App: React.FC = () => {
                    <Zap size={14} /> SMART INSIGHTS
                  </div>
                  {(() => {
-                   const daysPassed = now.getDate();
-                   const totalDays = endOfMonth(now).getDate();
-                   const projected = (monthlyStats.earnings / daysPassed) * totalDays;
+                                      const totalDays = endOfMonth(now).getDate();
+                   const projected = smartDailyStats.avgEarnings * totalDays;
                    const diff = projected - settings.monthlyGoal;
                    const isAhead = diff >= 0;
 
                    return (
                      <div className="mono-font">
                         <div style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>RITMO DIARIO ACTUAL</div>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px' }}>${formatCurrency(monthlyStats.earnings / daysPassed)} <span style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>/ DÍA</span></div>
+                        <div style={{ display: 'flex', gap: '20px', alignItems: 'baseline', marginBottom: '16px' }}>
+                           <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>
+                             ${formatCurrency(smartDailyStats.avgEarnings)} <span style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>/ DÍA</span>
+                           </div>
+                           <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-secondary)' }}>
+                             {smartDailyStats.avgHours.toFixed(1)} <span style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>HS / DÍA</span>
+                           </div>
+                         </div>
                         
                         <div style={{ padding: '12px', background: isAhead ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderRadius: '4px', border: `1px solid ${isAhead ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}` }}>
                            <div style={{ fontSize: '0.6rem', color: isAhead ? 'var(--success)' : 'var(--danger)', fontWeight: 800 }}>ESTADO DE LA META</div>
