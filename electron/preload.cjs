@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   selectFile: (filters) => ipcRenderer.invoke('select-file', filters),
   openFile: (path) => ipcRenderer.invoke('open-file', path),
+  shareFile: (data) => ipcRenderer.invoke('share-file', data),
   getArcaInvoiceInfo: (data) => ipcRenderer.invoke('get-arca-invoice-info', data),
   getPublicIp: () => ipcRenderer.invoke('get-public-ip'),
   getVersion: () => ipcRenderer.invoke('get-app-version'),

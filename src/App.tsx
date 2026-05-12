@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.72';
+const APP_VERSION = '2.3.73';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -2103,29 +2103,40 @@ const App: React.FC = () => {
                            const client = settings.clients.find(c => c.name === bm.clientName);
                            return (
                              <div style={{ display: 'flex', gap: '8px' }}>
-                               {client?.phone && (
+                               {client?.phone && bm.filePath && (
                                  <button 
-                                   onClick={() => {
+                                   onClick={async () => {
                                      const msg = `Hola! Te envío la factura ${bm.invoiceNumber} de ${format(parseISO(bm.date), "MMMM")}. El total es $${formatCurrency(bm.totalAmount)}. Saludos!`;
-                                     window.open(`https://wa.me/${client.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                                     const res = await window.electronAPI?.shareFile({
+                                       filePath: bm.filePath!,
+                                       method: 'whatsapp',
+                                       contact: client.phone!,
+                                       message: msg
+                                     });
+                                     if (res?.success) addLog('info', 'COMPARTIR', res.message);
                                    }}
                                    className="btn-secondary" 
                                    style={{ padding: '8px', color: '#25D366', borderColor: 'rgba(37, 211, 102, 0.2)' }}
-                                   title="Enviar por WhatsApp"
+                                   title="WhatsApp: Copia el archivo al portapapeles y abre el chat"
                                  >
                                    <Plus size={14} />
                                  </button>
                                )}
-                               {client?.email && (
+                               {client?.email && bm.filePath && (
                                  <button 
-                                   onClick={() => {
-                                     const subject = `Factura ${bm.invoiceNumber} - ${bm.clientName}`;
-                                     const body = `Hola,\n\nAdjunto la factura correspondiente a los servicios del mes de ${format(parseISO(bm.date), "MMMM")}.\n\nTotal: $${formatCurrency(bm.totalAmount)}\n\nSaludos,\n${settings.arcaInfo.nombreEmisor}`;
-                                     window.open(`mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+                                   onClick={async () => {
+                                     const msg = `Hola,\n\nAdjunto la factura correspondiente a los servicios del mes de ${format(parseISO(bm.date), "MMMM")}.\n\nTotal: $${formatCurrency(bm.totalAmount)}\n\nSaludos,\n${settings.arcaInfo.nombreEmisor}`;
+                                     const res = await window.electronAPI?.shareFile({
+                                       filePath: bm.filePath!,
+                                       method: 'email',
+                                       contact: client.email!,
+                                       message: msg
+                                     });
+                                     if (res?.success) addLog('info', 'COMPARTIR', res.message);
                                    }}
                                    className="btn-secondary" 
                                    style={{ padding: '8px', color: 'var(--accent-color)', borderColor: 'rgba(14, 165, 233, 0.2)' }}
-                                   title="Enviar por Email"
+                                   title="Email: Abre la carpeta con el archivo y el borrador de correo"
                                  >
                                    <FileText size={14} />
                                  </button>

@@ -551,12 +551,40 @@ ipcMain.handle('arca-regenerate-pdf', async (event, { billedMonth, settings }) =
 });
 
 // File Opener
-ipcMain.handle('open-file', async (event, filePath) => {
-  if (fs.existsSync(filePath)) {
-    shell.openPath(filePath);
-    return { success: true };
+ipcMain.handle('open-file', (event, filePath) => {
+  shell.openPath(filePath);
+});
+
+ipcMain.handle('share-file', async (event, { filePath, method, contact, message }) => {
+  if (method === 'whatsapp') {
+    try {
+      // Copy file to clipboard using PowerShell (Windows specific)
+      const { exec } = require('child_process');
+      exec(`powershell -command "Set-Clipboard -Path '${filePath}'"`, (err) => {
+        if (err) console.error('Error copying file to clipboard:', err);
+      });
+      
+      // Open WhatsApp
+      const url = `https://wa.me/${contact.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
+      shell.openExternal(url);
+      return { success: true, message: 'Archivo copiado al portapapeles. ¡Pégalo en WhatsApp!' };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  } else if (method === 'email') {
+    try {
+      // Open the folder and select the file
+      shell.showItemInFolder(filePath);
+      
+      // Open mail client
+      const subject = `Factura - LYNX Tracker`;
+      const url = `mailto:${contact}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+      shell.openExternal(url);
+      return { success: true, message: 'Carpeta abierta con el archivo seleccionado. ¡Arrástralo al correo!' };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
   }
-  return { success: false, error: 'File not found' };
 });
 
 // Data Persistence
