@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.82';
+const APP_VERSION = '2.3.83';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -668,7 +668,6 @@ const App: React.FC = () => {
   
   // --- SMART AVERAGING LOGIC (Refined with Toggle) ---
   const smartDailyStats = useMemo(() => {
-    const currentDay = now.getDate();
     
     // Contar días trabajados en el mes actual hasta hoy
     const workedDaysThisMonth = new Set(
@@ -2079,11 +2078,6 @@ const App: React.FC = () => {
                   })()}
               </div>
            </div>
-                    </div>
-                   );
-                 })()}
-              </div>
-            </div>
 
             
             {/* --- PROYECCIÓN MONOTRIBUTO --- */}
