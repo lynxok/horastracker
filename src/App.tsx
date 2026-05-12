@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.75';
+const APP_VERSION = '2.3.76';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -2114,7 +2114,7 @@ const App: React.FC = () => {
                                        contact: client.phone as string,
                                        message: msg
                                      });
-                                     if (res?.success) addLog('info', 'COMPARTIR', res.message);
+                                     if (res?.success) addLog('info', 'COMPARTIR', res.message || 'Operación completada');
                                    }}
                                    className="btn-secondary" 
                                    style={{ padding: '8px', color: '#25D366', borderColor: 'rgba(37, 211, 102, 0.2)' }}
@@ -2133,7 +2133,7 @@ const App: React.FC = () => {
                                        contact: client.email as string,
                                        message: msg
                                      });
-                                     if (res?.success) addLog('info', 'COMPARTIR', res.message);
+                                     if (res?.success) addLog('info', 'COMPARTIR', res.message || 'Operación completada');
                                    }}
                                    className="btn-secondary" 
                                    style={{ padding: '8px', color: 'var(--accent-color)', borderColor: 'rgba(14, 165, 233, 0.2)' }}
