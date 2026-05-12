@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.70';
+const APP_VERSION = '2.3.71';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -1220,75 +1220,83 @@ const App: React.FC = () => {
 
   if (!isLoaded) return null;
 
-  if (isToastView && toastData) {
-    const isUpdate = toastData.type === 'update';
+  if (isToastView) {
+    const isUpdate = toastData?.type === 'update';
     
     return (
       <div className="fade-in" style={{ 
-        width: '400px', 
-        height: '160px', 
+        width: '100%', 
+        height: '100vh', 
         overflow: 'hidden', 
-        padding: '16px', 
+        padding: '20px', 
         display: 'flex', 
         flexDirection: 'column', 
-        gap: '12px', 
-        border: '1px solid var(--surface-border)', 
-        background: 'rgba(15, 23, 42, 0.6)', 
-        backdropFilter: 'blur(30px)', 
-        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)', 
+        border: '1px solid var(--accent-color)', 
+        background: 'rgba(15, 23, 42, 0.95)', 
+        backdropFilter: 'blur(20px)', 
         color: 'white',
-        position: 'relative'
+        position: 'relative',
+        justifyContent: 'center'
       }}>
-        {/* Reflection top border */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)' }}></div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ 
-              width: '8px', 
-              height: '8px', 
-              borderRadius: '50%', 
-              background: isUpdate ? 'var(--success)' : 'var(--accent-color)', 
-              boxShadow: `0 0 10px ${isUpdate ? 'var(--success-glow)' : 'var(--accent-glow)'}` 
-            }}></div>
-            <span className="mono-font" style={{ fontSize: '0.7rem', color: isUpdate ? 'var(--success)' : 'var(--accent-color)', letterSpacing: '2px' }}>
-              {isUpdate ? 'SISTEMA LYNX' : 'ZONA DETECTADA'}
-            </span>
-          </div>
-          <button onClick={() => window.electronAPI?.closeToast()} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={16}/></button>
-        </div>
+        {/* Decorative elements */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: isUpdate ? 'var(--success)' : 'var(--accent-color)', boxShadow: `0 0 10px ${isUpdate ? 'var(--success-glow)' : 'var(--accent-glow)'}` }}></div>
         
-        <div style={{ flex: 1 }}>
-          <h2 className="mono-font" style={{ fontSize: '1rem', margin: '0 0 4px 0' }}>{toastData.name}</h2>
-          <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8' }}>
+        <div style={{ position: 'absolute', top: '15px', left: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ 
+            width: '8px', 
+            height: '8px', 
+            borderRadius: '50%', 
+            background: isUpdate ? 'var(--success)' : 'var(--accent-color)', 
+            boxShadow: `0 0 10px ${isUpdate ? 'var(--success-glow)' : 'var(--accent-glow)'}` 
+          }}></div>
+          <span className="mono-font" style={{ fontSize: '0.65rem', color: isUpdate ? 'var(--success)' : 'var(--accent-color)', letterSpacing: '2px', fontWeight: 800 }}>
+            {isUpdate ? 'SISTEMA LYNX' : 'ZONA DETECTADA'}
+          </span>
+        </div>
+
+        <button 
+          onClick={() => window.electronAPI?.closeToast()} 
+          style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+        >
+          <X size={18}/>
+        </button>
+        
+        <div style={{ marginTop: '10px' }}>
+          <h2 className="mono-font" style={{ fontSize: '1.1rem', margin: '0 0 8px 0', fontWeight: 900, letterSpacing: '1px' }}>
+            {toastData?.name || (isUpdate ? 'ACTUALIZACIÓN LISTA' : 'ZONA DETECTADA')}
+          </h2>
+          <p className="mono-font" style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
             {isUpdate 
-              ? 'Una nueva versión ha sido preparada e instalada automáticamente. Reinicia para aplicar.' 
-              : 'Estás conectado a la red de este cliente. ¿Deseas iniciar el trackeo?'}
+              ? 'Una nueva versión ha sido preparada e instalada automáticamente. Reinicia para aplicar los cambios.' 
+              : `Estás conectado a la red de ${toastData?.name || 'este cliente'}. ¿Deseas iniciar el trackeo de horas?`}
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
           {isUpdate ? (
             <button 
               onClick={() => window.electronAPI?.restartApp()} 
               className="btn-primary" 
-              style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '10px' }}
+              style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '12px', background: 'rgba(34, 197, 94, 0.1)', borderColor: 'var(--success)', color: 'var(--success)' }}
             >
               REINICIAR AHORA
             </button>
           ) : (
             <>
               <button 
-                onClick={() => window.electronAPI?.toastActionStart(toastData)} 
+                onClick={() => {
+                  if (toastData) window.electronAPI?.toastActionStart(toastData);
+                  window.electronAPI?.closeToast();
+                }} 
                 className="btn-primary" 
-                style={{ flex: 2, justifyContent: 'center', fontSize: '0.8rem', padding: '10px' }}
+                style={{ flex: 1.5, justifyContent: 'center', fontSize: '0.75rem', padding: '12px' }}
               >
-                INICIAR TURNO
+                SÍ, INICIAR
               </button>
               <button 
                 onClick={() => window.electronAPI?.closeToast()} 
                 className="btn-secondary" 
-                style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '10px', background: 'rgba(255,255,255,0.05)' }}
+                style={{ flex: 1, justifyContent: 'center', fontSize: '0.75rem', padding: '12px' }}
               >
                 IGNORAR
               </button>
@@ -1639,47 +1647,6 @@ const App: React.FC = () => {
     );
   }
 
-  // --- TOAST VIEW ---
-  if (isToastView) {
-    return (
-      <div className="fade-in" style={{ height: '100vh', padding: '16px', background: 'rgba(15, 23, 42, 0.98)', border: '1px solid var(--accent-color)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <div className="mono-font" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--success)', fontSize: '0.65rem', fontWeight: 800 }}>
-             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', boxShadow: '0 0 10px var(--success)' }}></div>
-             SISTEMA LYNX
-          </div>
-          <button onClick={() => window.electronAPI?.closeToast()} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16}/></button>
-        </div>
-
-        {updateStatus === 'downloaded' ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h2 className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '8px', letterSpacing: '1px' }}>ACTUALIZACIÓN LISTA</h2>
-            <p className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: 1.4 }}>Se ha instalado la versión <b>v{appVersion}</b> automáticamente. Reinicia para aplicar los cambios.</p>
-            <button 
-              onClick={() => window.electronAPI?.restartApp()} 
-              className="btn-primary" 
-              style={{ width: '100%', padding: '14px', fontWeight: 800, borderColor: 'var(--danger)', color: 'white', background: 'rgba(239, 68, 68, 0.1)', boxShadow: '0 0 20px rgba(239, 68, 68, 0.2)' }}>
-              REINICIAR AHORA
-            </button>
-          </div>
-        ) : toastData ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h2 className="mono-font" style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '6px' }}>ZONA DETECTADA</h2>
-            <p className="mono-font" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>Estás en la red de <b>{toastData.name}</b>. ¿Quieres iniciar el cronómetro?</p>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button 
-                onClick={() => {
-                  window.electronAPI?.toastActionStart(toastData);
-                  window.electronAPI?.closeToast();
-                }}
-                className="btn-primary" style={{ flex: 1, padding: '12px', fontSize: '0.7rem' }}>SÍ, INICIAR</button>
-              <button onClick={() => window.electronAPI?.closeToast()} className="btn-secondary" style={{ flex: 1, padding: '12px', fontSize: '0.7rem' }}>IGNORAR</button>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    );
-  }
 
 
   // APP RENDER
