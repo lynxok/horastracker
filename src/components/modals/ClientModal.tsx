@@ -11,6 +11,7 @@ interface Client {
   workIp?: string;
   email?: string;
   phone?: string;
+  workDays?: number[];
 }
 
 interface ClientModalProps {
@@ -80,6 +81,40 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                    <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>WHATSAPP (Sin +)</label>
                    <input type="text" value={tempClient.phone || ''} onChange={e => setTempClient({...tempClient, phone: e.target.value})} placeholder="549343..."
                      style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
+                </div>
+             </div>
+             <div>
+                <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>DÍAS LABORALES (Para el estimador)</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((day, idx) => {
+                    const isSelected = (tempClient.workDays || []).includes(idx);
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          const current = tempClient.workDays || [];
+                          const next = current.includes(idx) 
+                            ? current.filter(d => d !== idx)
+                            : [...current, idx];
+                          setTempClient({ ...tempClient, workDays: next });
+                        }}
+                        className="mono-font"
+                        style={{
+                          flex: 1,
+                          padding: '8px 0',
+                          background: isSelected ? 'var(--accent-color)' : '#000',
+                          border: '1px solid var(--surface-border)',
+                          color: isSelected ? '#000' : 'white',
+                          cursor: 'pointer',
+                          fontSize: '0.7rem',
+                          fontWeight: 800,
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
                 </div>
              </div>
              <div>

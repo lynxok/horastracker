@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.81';
+const APP_VERSION = '2.3.82';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -82,6 +82,7 @@ interface Client {
   workIp?: string;
   email?: string;
   phone?: string;
+  workDays?: number[];
 }
 
 interface WorkSession {
@@ -175,7 +176,8 @@ const DEFAULT_CLIENTS: Client[] = [
     cuit: '30588898179',
     domicilio: 'San Martin 1247 - Parana, Entre Ríos',
     condicionIva: 'IVA Responsable Inscripto',
-    hourlyRate: 5000
+    hourlyRate: 5000,
+    workDays: [1, 2, 3, 4, 5]
   }
 ];
 
@@ -285,7 +287,7 @@ const App: React.FC = () => {
   const [tempGoalValue, setTempGoalValue] = useState<string>('');
   
   const [tempClient, setTempClient] = useState<Client>({
-    id: '', name: '', cuit: '', domicilio: '', condicionIva: 'IVA Responsable Inscripto', hourlyRate: 5000, workIp: '', email: '', phone: ''
+    id: '', name: '', cuit: '', domicilio: '', condicionIva: 'IVA Responsable Inscripto', hourlyRate: 5000, workIp: '', email: '', phone: '', workDays: [1, 2, 3, 4, 5]
   });
 
   const [showManualInvoiceModal, setShowManualInvoiceModal] = useState(false);
@@ -623,6 +625,18 @@ const App: React.FC = () => {
     const s = Math.floor(((hours - h) * 60 - m) * 60);
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
+  
+  const countWorkDaysInRange = (start: Date, end: Date, workDays: number[]) => {
+    let count = 0;
+    let current = new Date(start.getTime());
+    while (current <= end) {
+      if (workDays.includes(current.getDay())) {
+        count++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    return count;
+  };
 
   const calculateStatsForInterval = (start: Date, end: Date) => {
     let totalSecs = 0;
@@ -643,6 +657,14 @@ const App: React.FC = () => {
   const dailyStats = useMemo(() => calculateStatsForInterval(startOfDay(now), endOfDay(now)), [sessions, now]);
   const weeklyStats = useMemo(() => calculateStatsForInterval(startOfWeek(now, { weekStartsOn: 1 }), endOfWeek(now, { weekStartsOn: 1 })), [sessions, now]);
   const monthlyStats = useMemo(() => calculateStatsForInterval(startOfMonth(now), endOfMonth(now)), [sessions, now]);
+  
+  const workDaysUnion = useMemo(() => {
+    const union = new Set<number>();
+    settings.clients.forEach(c => {
+      (c.workDays || [1,2,3,4,5]).forEach(d => union.add(d));
+    });
+    return Array.from(union).sort();
+  }, [settings.clients]);
   
   // --- SMART AVERAGING LOGIC (Refined with Toggle) ---
   const smartDailyStats = useMemo(() => {
@@ -670,8 +692,8 @@ const App: React.FC = () => {
     const hoursToday = dailyStats.hours;
     const isWorkedMode = settings.smartStatsMode === 'worked';
     
-    const divisorBeforeToday = isWorkedMode ? workedDaysBeforeToday : (currentDay - 1);
-    const divisorToday = isWorkedMode ? totalWorkedDaysSoFar : currentDay;
+    const divisorBeforeToday = isWorkedMode ? workedDaysBeforeToday : countWorkDaysInRange(startOfMonth(now), subDays(now, 1), workDaysUnion);
+    const divisorToday = isWorkedMode ? totalWorkedDaysSoFar : countWorkDaysInRange(startOfMonth(now), now, workDaysUnion);
     
     const avgHoursBeforeToday = divisorBeforeToday > 0 ? statsUntilYesterday.hours / divisorBeforeToday : 0;
     
@@ -1037,7 +1059,7 @@ const App: React.FC = () => {
       setTempClient(c);
       setEditClientId(c.id);
     } else {
-      setTempClient({ id: '', name: '', cuit: '', domicilio: '', condicionIva: 'IVA Responsable Inscripto', hourlyRate: 5000, workIp: '' });
+      setTempClient({ id: '', name: '', cuit: '', domicilio: '', condicionIva: 'IVA Responsable Inscripto', hourlyRate: 5000, workIp: '', workDays: [1, 2, 3, 4, 5] });
       setEditClientId(null);
     }
     setShowClientModal(true);
@@ -1953,11 +1975,11 @@ const App: React.FC = () => {
                  <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>ESTE MES</div>
                  <div style={{ fontSize: '1.5rem', fontWeight: 800 }} className="mono-font">{monthlyStats.hours.toFixed(1)} <span style={{fontSize: '0.8rem'}}>HS</span></div>
                  <div style={{ fontSize: '0.8rem', color: 'var(--success)' }} className="mono-font">${formatCurrency(monthlyStats.earnings)}</div>
-              </div>
-              <div className="premium-card" style={{ borderLeft: '3px solid var(--accent-secondary)' }}>
+               </div>
+               <div className="premium-card" style={{ borderLeft: '3px solid var(--accent-secondary)' }}>
                  <div className="mono-font" style={{ color: 'var(--text-secondary)', fontSize: '0.6rem', marginBottom: '12px' }}>PROYECCIÓN CIERRE</div>
                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-secondary)' }} className="mono-font">
-                   ${formatCurrency(smartDailyStats.avgEarnings * endOfMonth(now).getDate())}
+                   ${formatCurrency(smartDailyStats.avgEarnings * (settings.smartStatsMode === 'worked' ? endOfMonth(now).getDate() : countWorkDaysInRange(startOfMonth(now), endOfMonth(now), workDaysUnion)))}
                  </div>
               </div>
               <div className="premium-card" style={{ borderLeft: '3px solid var(--success)' }}>
@@ -2021,38 +2043,43 @@ const App: React.FC = () => {
                     </div>
                   </div>
                  {(() => {
-                                      const totalDays = endOfMonth(now).getDate();
-                   const projected = smartDailyStats.avgEarnings * totalDays;
-                   const diff = projected - settings.monthlyGoal;
-                   const isAhead = diff >= 0;
+                    const totalDays = settings.smartStatsMode === 'worked' ? endOfMonth(now).getDate() : countWorkDaysInRange(startOfMonth(now), endOfMonth(now), workDaysUnion);
+                    const projected = smartDailyStats.avgEarnings * totalDays;
+                    const diff = projected - settings.monthlyGoal;
+                    const isAhead = diff >= 0;
 
-                   return (
-                     <div className="mono-font">
-                        <div style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>RITMO DIARIO ACTUAL</div>
-                        <div style={{ display: 'flex', gap: '20px', alignItems: 'baseline', marginBottom: '16px' }}>
-                           <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>
-                             ${formatCurrency(smartDailyStats.avgEarnings)} <span style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>/ DÍA</span>
-                           </div>
-                           <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-secondary)' }}>
-                             {smartDailyStats.avgHours.toFixed(1)} <span style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>HS / DÍA</span>
-                           </div>
+                    return (
+                      <div className="mono-font">
+                         <div style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>RITMO DIARIO ACTUAL</div>
+                         <div style={{ display: 'flex', gap: '20px', alignItems: 'baseline', marginBottom: '16px' }}>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>
+                              ${formatCurrency(smartDailyStats.avgEarnings)} <span style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>/ DÍA</span>
+                            </div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-secondary)' }}>
+                              {smartDailyStats.avgHours.toFixed(1)} <span style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>HS / DÍA</span>
+                            </div>
+                          </div>
+                         
+                         <div style={{ padding: '12px', background: isAhead ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderRadius: '4px', border: `1px solid ${isAhead ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}` }}>
+                            <div style={{ fontSize: '0.6rem', color: isAhead ? 'var(--success)' : 'var(--danger)', fontWeight: 800 }}>ESTADO DE LA META</div>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 800, marginTop: '4px' }}>
+                              {isAhead ? '📈 SUPERÁVIT PREVISTO' : '📉 DÉFICIT PREVISTO'}
+                            </div>
+                            <div style={{ fontSize: '1rem', fontWeight: 900, marginTop: '2px', color: isAhead ? 'var(--success)' : 'var(--danger)' }}>
+                              ${formatCurrency(Math.abs(diff))}
+                            </div>
+                            <div style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.4 }}>
+                              {isAhead 
+                                ? 'Vas por buen camino. A este ritmo, superarás tu objetivo mensual con creces.' 
+                                : `Te faltan aprox. ${((Math.abs(diff)) / (settings.clients.find(c => c.id === settings.selectedClientId)?.hourlyRate || settings.clients[0].hourlyRate)).toFixed(1)} horas extra este mes para alcanzar la meta.`}
+                            </div>
                          </div>
-                        
-                        <div style={{ padding: '12px', background: isAhead ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderRadius: '4px', border: `1px solid ${isAhead ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}` }}>
-                           <div style={{ fontSize: '0.6rem', color: isAhead ? 'var(--success)' : 'var(--danger)', fontWeight: 800 }}>ESTADO DE LA META</div>
-                           <div style={{ fontSize: '0.8rem', fontWeight: 800, marginTop: '4px' }}>
-                             {isAhead ? '📈 SUPERÁVIT PREVISTO' : '📉 DÉFICIT PREVISTO'}
-                           </div>
-                           <div style={{ fontSize: '1rem', fontWeight: 900, marginTop: '2px', color: isAhead ? 'var(--success)' : 'var(--danger)' }}>
-                             ${formatCurrency(Math.abs(diff))}
-                           </div>
-                           <div style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.4 }}>
-                             {isAhead 
-                               ? 'Vas por buen camino. A este ritmo, superarás tu objetivo mensual con creces.' 
-                               : `Te faltan aprox. ${((Math.abs(diff)) / (settings.clients.find(c => c.id === settings.selectedClientId)?.hourlyRate || settings.clients[0].hourlyRate)).toFixed(1)} horas extra este mes para alcanzar la meta.`}
-                           </div>
-                        </div>
-                     </div>
+                      </div>
+                    );
+                  })()}
+              </div>
+           </div>
+                    </div>
                    );
                  })()}
               </div>
