@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.74';
+const APP_VERSION = '2.3.75';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -44,7 +44,7 @@ declare global {
       selectFolder: () => Promise<string | null>;
       selectFile: (filters: { name: string; extensions: string[] }[]) => Promise<string | null>;
       openFile: (path: string) => Promise<{ success: boolean; error?: string }>;
-      shareFile: (data: { filePath: string; method: 'whatsapp' | 'email'; contact: string; message: string }) => Promise<{ success: boolean; message?: string; error?: string }>;
+      shareFile: (data: { filePath: string; method: string; contact: string; message: string }) => Promise<{ success: boolean; message?: string; error?: string }>;
       getArcaInvoiceInfo: (data: any) => Promise<{ success: boolean; info?: any; error?: string }>;
       getPublicIp: () => Promise<{ success: boolean; ip?: string; error?: string }>;
       getVersion: () => Promise<string>;
@@ -59,7 +59,7 @@ declare global {
       closeToast: () => void;
       onStartSessionFromToast: (callback: (client: any) => void) => void;
       toastActionStart: (client: any) => void;
-      openWidget: (mode: 'active' | 'idle') => void;
+      openWidget: (mode?: string) => void;
       closeWidget: () => void;
       requestSync: () => void;
       openBackupsFolder: () => Promise<void>;
@@ -2084,7 +2084,7 @@ const App: React.FC = () => {
                       <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
                         <div style={{ background: bm.status === 'CANCELLED' ? 'var(--danger)' : 'var(--success)', padding: '8px', borderRadius: '4px', cursor: 'pointer' }} onClick={() => {
                           // Toggle status for payment tracking
-                          const newBilled = billedMonths.map(m => m.id === bm.id ? { ...m, status: m.status === 'ACTIVE' ? 'CANCELLED' : 'ACTIVE' } : m);
+                          const newBilled: BilledMonth[] = billedMonths.map(m => m.id === bm.id ? { ...m, status: (m.status === 'ACTIVE' ? 'CANCELLED' : 'ACTIVE') as 'ACTIVE' | 'CANCELLED' } : m);
                           setBilledMonths(newBilled);
                           addLog('info', 'PAGOS', `Estado de comprobante ${bm.invoiceNumber} cambiado a ${bm.status === 'ACTIVE' ? 'COBRADO' : 'PENDIENTE'}`);
                         }} title="Cambiar estado de cobro">
@@ -2111,7 +2111,7 @@ const App: React.FC = () => {
                                      const res = await window.electronAPI?.shareFile({
                                        filePath: bm.filePath!,
                                        method: 'whatsapp',
-                                       contact: client.phone!,
+                                       contact: client.phone as string,
                                        message: msg
                                      });
                                      if (res?.success) addLog('info', 'COMPARTIR', res.message);
@@ -2130,7 +2130,7 @@ const App: React.FC = () => {
                                      const res = await window.electronAPI?.shareFile({
                                        filePath: bm.filePath!,
                                        method: 'email',
-                                       contact: client.email!,
+                                       contact: client.email as string,
                                        message: msg
                                      });
                                      if (res?.success) addLog('info', 'COMPARTIR', res.message);
