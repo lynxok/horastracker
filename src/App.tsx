@@ -16,7 +16,7 @@ import {
 import { ThemeSelector } from './components/ThemeSelector';
 
 
-const APP_VERSION = '2.3.85';
+const APP_VERSION = '2.3.86';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -34,7 +34,7 @@ declare global {
       updateTray: (status: string) => void;
       setAutostart: (val: boolean) => Promise<boolean>;
       getAutostart: () => Promise<boolean>;
-      onTrayAction: (callback: (action: string, data?: any) => void) => void;
+      onTrayAction: (callback: (action: string, data?: any) => void) => () => void;
       syncTrayData: (data: { clients: any[]; activeSession: any | null }) => void;
       generateArcaCSR: (data: any) => Promise<{ success: boolean; folder?: string; keyPath?: string; csrPath?: string; msg?: string; error?: string }>;
       testArcaConnection: (settings: any) => Promise<{ success: boolean; status?: any; error?: string; detailed?: string; certInfo?: string }>;
@@ -50,14 +50,14 @@ declare global {
       getVersion: () => Promise<string>;
       checkForUpdates: () => void;
       restartApp: () => void;
-      onUpdateAvailable: (callback: () => void) => void;
-      onUpdateDownloaded: (callback: () => void) => void;
-      onUpdateNotAvailable: (callback: () => void) => void;
-      onCheckingForUpdate: (callback: () => void) => void;
-      onUpdateError: (callback: (err: string) => void) => void;
+      onUpdateAvailable: (callback: () => void) => () => void;
+      onUpdateDownloaded: (callback: () => void) => () => void;
+      onUpdateNotAvailable: (callback: () => void) => () => void;
+      onCheckingForUpdate: (callback: () => void) => () => void;
+      onUpdateError: (callback: (err: string) => void) => () => void;
       syncMonitoringData: (data: any) => void;
       closeToast: () => void;
-      onStartSessionFromToast: (callback: (client: any) => void) => void;
+      onStartSessionFromToast: (callback: (client: any) => void) => () => void;
       toastActionStart: (client: any) => void;
       openWidget: (mode?: string) => void;
       closeWidget: () => void;
@@ -66,7 +66,7 @@ declare global {
       deepScanData: () => Promise<any>;
       importDataFromPath: (path: string) => Promise<any>;
       setIgnoreMouseEvents: (ignore: boolean, options?: { forward: boolean }) => void;
-      onMonitoringDataUpdate: (callback: (data: any) => void) => void;
+      onMonitoringDataUpdate: (callback: (data: any) => void) => () => void;
       onRequestSyncFromMain: (callback: () => void) => () => void;
     }
   }
@@ -1331,8 +1331,6 @@ const App: React.FC = () => {
   };
 
   const cleanDuplicateSessions = () => {
-    let countBefore = sessions.length;
-    
     // Group sessions by startTime (exact second, ignoring milliseconds)
     const groups: { [key: string]: WorkSession[] } = {};
     sessions.forEach(s => {
