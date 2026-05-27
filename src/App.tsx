@@ -437,7 +437,7 @@ const App: React.FC = () => {
     // Zone Detection Logic (Local fallback removed, now handled by main.cjs)
     // We still listen for detections from main
     if (window.electronAPI) {
-      window.electronAPI?.onStartSessionFromToast((client: any) => {
+      const cleanup = window.electronAPI.onStartSessionFromToast((client: any) => {
         if (!isLoaded) return;
         // Don't prompt or start if already running for this client
         const activeS = sessions.find(s => s.id === activeSessionId);
@@ -446,8 +446,9 @@ const App: React.FC = () => {
         const fullClient = settings.clients.find(c => c.id === client.id) || client;
         startSession(fullClient);
       });
+      return cleanup;
     }
-  }, [settings.clients, isLoaded]);
+  }, [settings.clients, isLoaded, sessions, activeSessionId]);
 
   // Toast Detection Logic
   useEffect(() => {
@@ -476,14 +477,22 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!window.electronAPI) return;
 
-    window.electronAPI?.onCheckingForUpdate(() => setUpdateStatus('checking'));
-    window.electronAPI?.onUpdateAvailable(() => setUpdateStatus('available'));
-    window.electronAPI?.onUpdateDownloaded(() => setUpdateStatus('downloaded'));
-    window.electronAPI?.onUpdateNotAvailable(() => setUpdateStatus('not-available'));
-    window.electronAPI?.onUpdateError(() => setUpdateStatus('error'));
+    const cleanupChecking = window.electronAPI.onCheckingForUpdate(() => setUpdateStatus('checking'));
+    const cleanupAvailable = window.electronAPI.onUpdateAvailable(() => setUpdateStatus('available'));
+    const cleanupDownloaded = window.electronAPI.onUpdateDownloaded(() => setUpdateStatus('downloaded'));
+    const cleanupNotAvailable = window.electronAPI.onUpdateNotAvailable(() => setUpdateStatus('not-available'));
+    const cleanupError = window.electronAPI.onUpdateError(() => setUpdateStatus('error'));
 
     // Check on startup
-    window.electronAPI?.checkForUpdates();
+    window.electronAPI.checkForUpdates();
+
+    return () => {
+      cleanupChecking?.();
+      cleanupAvailable?.();
+      cleanupDownloaded?.();
+      cleanupNotAvailable?.();
+      cleanupError?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -492,7 +501,7 @@ const App: React.FC = () => {
   // IPC Background Tray Actions
   useEffect(() => {
     if (window.electronAPI) {
-      window.electronAPI?.onTrayAction((action, data) => {
+      const cleanup = window.electronAPI.onTrayAction((action, data) => {
         if (action === 'restore') {
           // Window show/hide is handled by main.cjs now via context menu
         } else if (action === 'stop-session') {
@@ -501,6 +510,7 @@ const App: React.FC = () => {
           startSession(data);
         }
       });
+      return cleanup;
     }
   }, [sessions, activeSessionId, settings.clients]);
 
@@ -580,7 +590,7 @@ const App: React.FC = () => {
   // Listen for sync from other windows
   useEffect(() => {
     if (window.electronAPI) {
-      window.electronAPI.onMonitoringDataUpdate((data: any) => {
+      const cleanup = window.electronAPI.onMonitoringDataUpdate((data: any) => {
         if (data.activeSessionId !== undefined && data.activeSessionId !== activeSessionId) {
           setActiveSessionId(data.activeSessionId);
         }
@@ -591,6 +601,7 @@ const App: React.FC = () => {
           setSettings(data.settings);
         }
       });
+      return cleanup;
     }
   }, [activeSessionId, sessions, settings]);
 
@@ -859,10 +870,21 @@ const App: React.FC = () => {
       clientName: client.name,
       note: currentNote
     };
-    setSessions(prev => [...prev, newS]);
-    setActiveSessionId(newS.id);
+    setSessions(prev => {
+      // Safeguard: Check if there's already an unfinished session in the array, or if one was added less than 3 seconds ago
+      const hasActive = prev.some(s => !s.endTime);
+      const recentlyAdded = prev.some(s => {
+        const diff = Date.now() - new Date(s.startTime).getTime();
+        return diff < 3000;
+      });
+      if (hasActive || recentlyAdded) {
+        console.warn("Prevented duplicate session creation in startSession");
+        return prev;
+      }
+      setTimeout(() => setActiveSessionId(newS.id), 0);
+      return [...prev, newS];
+    });
     playThematicSound(settings.theme || 'cyberpunk', 'punch-in');
-
   };
 
   const handlePunchIn = () => {
@@ -877,8 +899,20 @@ const App: React.FC = () => {
       note: currentNote,
       totalPausedSeconds: 0
     };
-    setSessions(prev => [...prev, newS]);
-    setActiveSessionId(newS.id);
+    setSessions(prev => {
+      // Safeguard: Check if there's already an unfinished session in the array, or if one was added less than 3 seconds ago
+      const hasActive = prev.some(s => !s.endTime);
+      const recentlyAdded = prev.some(s => {
+        const diff = Date.now() - new Date(s.startTime).getTime();
+        return diff < 3000;
+      });
+      if (hasActive || recentlyAdded) {
+        console.warn("Prevented duplicate session creation in handlePunchIn");
+        return prev;
+      }
+      setTimeout(() => setActiveSessionId(newS.id), 0);
+      return [...prev, newS];
+    });
     playThematicSound(settings.theme || 'cyberpunk', 'punch-in');
 
     addLog('info', 'RELOJ', `Punch-in: ${activeClient.name}`);
@@ -1293,6 +1327,47 @@ const App: React.FC = () => {
     
     if (record.status === 'ACTIVE') {
       setSessions(prev => prev.map(s => s.invoiceId === record.id ? { ...s, invoiced: false, invoiceId: undefined } : s));
+    }
+  };
+
+  const cleanDuplicateSessions = () => {
+    let countBefore = sessions.length;
+    
+    // Group sessions by startTime (exact second, ignoring milliseconds)
+    const groups: { [key: string]: WorkSession[] } = {};
+    sessions.forEach(s => {
+      const key = s.startTime.substring(0, 19); 
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(s);
+    });
+    
+    const cleaned: WorkSession[] = [];
+    let removedCount = 0;
+    
+    Object.keys(groups).forEach(key => {
+      const list = groups[key];
+      if (list.length > 1) {
+        // We have duplicates! Keep the one that has an endTime, or just the first one
+        const kept = list.find(s => !!s.endTime) || list[0];
+        cleaned.push(kept);
+        removedCount += (list.length - 1);
+      } else {
+        cleaned.push(list[0]);
+      }
+    });
+    
+    if (removedCount > 0) {
+      setSessions(cleaned);
+      // Reset activeSessionId if the active session was deleted
+      const stillHasActive = cleaned.some(s => s.id === activeSessionId);
+      if (!stillHasActive) {
+        const newActive = cleaned.find(s => !s.endTime);
+        setActiveSessionId(newActive ? newActive.id : null);
+      }
+      alert(`¡Diagnóstico Completado!\n\nSe detectaron y eliminaron ${removedCount} sesiones duplicadas (fantasmas). La base de datos ha sido depurada con éxito.`);
+      addLog('info', 'DIAGNÓSTICO', `Depuración completada: se eliminaron ${removedCount} sesiones duplicadas.`);
+    } else {
+      alert("¡Análisis Completado!\n\nNo se encontraron sesiones duplicadas en tu historial. Tu base de datos está perfectamente limpia.");
     }
   };
 
@@ -2582,6 +2657,26 @@ const App: React.FC = () => {
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* DATABASE DIAGNOSTIC AND CLEANUP */}
+                <div style={{ marginTop: '24px', padding: '24px', background: 'rgba(239, 68, 68, 0.05)', border: '1px dashed var(--danger)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div className="mono-font" style={{ fontSize: '0.8rem', color: 'var(--danger)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Activity size={14} /> DIAGNÓSTICO Y LIMPIEZA DE BASE DE DATOS
+                      </div>
+                      <div className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        Analiza tu historial para detectar y eliminar automáticamente sesiones duplicadas (fantasmas) y corregir desfases de horas.
+                      </div>
+                    </div>
+                    <button 
+                      onClick={cleanDuplicateSessions} 
+                      className="btn-primary" 
+                      style={{ padding: '10px 24px', fontSize: '0.7rem', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'var(--danger)', color: 'var(--danger)', boxShadow: '0 0 15px var(--danger-glow)' }}>
+                      EJECUTAR DEPURACIÓN
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

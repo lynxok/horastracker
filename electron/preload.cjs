@@ -11,7 +11,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateTray: (status) => ipcRenderer.send('update-tray', status),
   setAutostart: (val) => ipcRenderer.invoke('set-autostart', val),
   getAutostart: () => ipcRenderer.invoke('get-autostart'),
-  onTrayAction: (callback) => ipcRenderer.on('tray-action', (event, action, data) => callback(action, data)),
+  onTrayAction: (callback) => {
+    const listener = (event, action, data) => callback(action, data);
+    ipcRenderer.on('tray-action', listener);
+    return () => ipcRenderer.removeListener('tray-action', listener);
+  },
   syncTrayData: (data) => ipcRenderer.send('sync-tray-data', data),
   testArcaConnection: (settings) => ipcRenderer.invoke('arca-test-connection', settings),
   generateArcaCSR: (data) => ipcRenderer.invoke('arca-generate-csr', data),
@@ -27,14 +31,34 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   regenerateArcaPDF: (data) => ipcRenderer.invoke('arca-regenerate-pdf', data),
   restartApp: () => ipcRenderer.invoke('restart-app'),
-  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
-  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
-  onUpdateNotAvailable: (callback) => ipcRenderer.on('update-not-available', callback),
-  onCheckingForUpdate: (callback) => ipcRenderer.on('checking-for-update', callback),
-  onUpdateError: (callback) => ipcRenderer.on('update-error', (event, err) => callback(err)),
+  onUpdateAvailable: (callback) => {
+    ipcRenderer.on('update-available', callback);
+    return () => ipcRenderer.removeListener('update-available', callback);
+  },
+  onUpdateDownloaded: (callback) => {
+    ipcRenderer.on('update-downloaded', callback);
+    return () => ipcRenderer.removeListener('update-downloaded', callback);
+  },
+  onUpdateNotAvailable: (callback) => {
+    ipcRenderer.on('update-not-available', callback);
+    return () => ipcRenderer.removeListener('update-not-available', callback);
+  },
+  onCheckingForUpdate: (callback) => {
+    ipcRenderer.on('checking-for-update', callback);
+    return () => ipcRenderer.removeListener('checking-for-update', callback);
+  },
+  onUpdateError: (callback) => {
+    const listener = (event, err) => callback(err);
+    ipcRenderer.on('update-error', listener);
+    return () => ipcRenderer.removeListener('update-error', listener);
+  },
   syncMonitoringData: (data) => ipcRenderer.send('sync-monitoring-data', data),
   closeToast: () => ipcRenderer.send('close-toast'),
-  onStartSessionFromToast: (callback) => ipcRenderer.on('start-session-from-toast', (event, client) => callback(client)),
+  onStartSessionFromToast: (callback) => {
+    const listener = (event, client) => callback(client);
+    ipcRenderer.on('start-session-from-toast', listener);
+    return () => ipcRenderer.removeListener('start-session-from-toast', listener);
+  },
   toastActionStart: (client) => ipcRenderer.send('toast-action-start', client),
   openWidget: (mode) => ipcRenderer.send('open-widget', mode),
   closeWidget: () => ipcRenderer.send('close-widget'),
@@ -43,7 +67,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deepScanData: () => ipcRenderer.invoke('deep-scan-data'),
   importDataFromPath: (path) => ipcRenderer.invoke('import-data-from-path', path),
   setIgnoreMouseEvents: (ignore, options) => ipcRenderer.send('set-ignore-mouse-events', ignore, options),
-  onMonitoringDataUpdate: (callback) => ipcRenderer.on('monitoring-data-update', (event, data) => callback(data)),
+  onMonitoringDataUpdate: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('monitoring-data-update', listener);
+    return () => ipcRenderer.removeListener('monitoring-data-update', listener);
+  },
   onRequestSyncFromMain: (callback) => {
     const listener = () => callback();
     ipcRenderer.on('request-sync-from-main', listener);
