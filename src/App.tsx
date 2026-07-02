@@ -1178,16 +1178,10 @@ const App: React.FC = () => {
     setArcaTesting(false);
   };
 
-  const handleGenerateInvoice = async () => {
+  const handleGenerateInvoice = async (overrideRate?: number) => {
     if (!window.electronAPI) return;
     const selectedList = sessions.filter(s => selectedSessions.has(s.id));
     if (selectedList.length === 0) return;
-
-    const totalAmount = selectedList.reduce((acc, s) => acc + (Math.floor((parseISO(s.endTime!).getTime() - parseISO(s.startTime).getTime()) / 1000) / 3600) * s.rate, 0);
-    const totalHours = selectedList.reduce((acc, s) => acc + (Math.floor((parseISO(s.endTime!).getTime() - parseISO(s.startTime).getTime()) / 1000) / 3600), 0);
-
-    const earliest = format(parseISO(selectedList.sort((a,b) => a.startTime.localeCompare(b.startTime))[0].startTime), 'yyyy-MM-dd');
-    const latest = format(parseISO(selectedList.sort((a,b) => b.startTime.localeCompare(a.startTime))[0].endTime!), 'yyyy-MM-dd');
 
     const targetClientId = selectedList[0].clientId;
     const client = settings.clients.find(c => c.id === targetClientId) || settings.clients[0];
@@ -1198,7 +1192,15 @@ const App: React.FC = () => {
       return;
     }
 
-    if (!confirm(`¿Emitir factura oficial para ${client.name} por $${formatCurrency(totalAmount)}?`)) return;
+    const activeRate = overrideRate !== undefined ? overrideRate : (selectedList[0]?.rate || client.hourlyRate);
+
+    const totalAmount = selectedList.reduce((acc, s) => acc + (Math.floor((parseISO(s.endTime!).getTime() - parseISO(s.startTime).getTime()) / 1000) / 3600) * activeRate, 0);
+    const totalHours = selectedList.reduce((acc, s) => acc + (Math.floor((parseISO(s.endTime!).getTime() - parseISO(s.startTime).getTime()) / 1000) / 3600), 0);
+
+    const earliest = format(parseISO(selectedList.sort((a,b) => a.startTime.localeCompare(b.startTime))[0].startTime), 'yyyy-MM-dd');
+    const latest = format(parseISO(selectedList.sort((a,b) => b.startTime.localeCompare(a.startTime))[0].endTime!), 'yyyy-MM-dd');
+
+    if (!confirm(`¿Emitir factura oficial para ${client.name} por $${formatCurrency(totalAmount)}? (Valor hora: $${formatCurrency(activeRate)})`)) return;
 
     setIsInvoicing(true);
     const res = await window.electronAPI?.generateArcaInvoice({
@@ -1216,12 +1218,23 @@ const App: React.FC = () => {
 
     if (res.success) {
       const invoiceId = crypto.randomUUID();
+
+      // Update client hourlyRate in settings
+      const newClients = settings.clients.map(c => c.id === targetClientId ? { ...c, hourlyRate: activeRate } : c);
+      updateSetting('clients', newClients);
+
+      // Update session rate for selected sessions and set as invoiced
+      const newSessions = sessions.map(s => 
+        selectedSessions.has(s.id) ? { ...s, rate: activeRate, invoiced: true, invoiceId } : s
+      );
+      setSessions(newSessions);
+
       const newInvoice: BilledMonth = {
         id: invoiceId,
         date: new Date().toISOString(),
         month: `${format(parseISO(earliest), 'dd/MM')} al ${format(parseISO(latest), 'dd/MM')}`,
         totalHours,
-        rate: client.hourlyRate,
+        rate: activeRate,
         totalAmount,
         status: 'ACTIVE',
         invoiceNumber: res.numero,
@@ -1237,13 +1250,12 @@ const App: React.FC = () => {
       };
 
       setBilledMonths([newInvoice, ...billedMonths]);
-      setSessions(sessions.map(s => selectedSessions.has(s.id) ? { ...s, invoiced: true, invoiceId } : s));
       setShowInvoicingModal(false);
       
       if (confirm("FACTURA GENERADA CON ÉXITO. ¿Desea abrir el archivo PDF?")) {
         window.electronAPI?.openFile(res.filePath!);
       }
-      addLog('info', 'FACTURACIÓN', `Factura #${res.numero} generada exitosamente para ${client.name}`);
+      addLog('info', 'FACTURACIÓN', `Factura #${res.numero} generada exitosamente para ${client.name} con valor hora $${activeRate}`);
     } else {
       alert(`ERROR AFIP: ${res.error}`);
       addLog('error', 'AFIP', `Error generando factura: ${res.error}`);
