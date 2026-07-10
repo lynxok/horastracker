@@ -6,6 +6,7 @@ const { autoUpdater } = require('electron-updater');
 const { Afip } = require('afip.ts');
 const forge = require('node-forge');
 const QRCode = require('qrcode');
+const nodemailer = require('nodemailer');
 const isDev = process.env.NODE_ENV === 'development';
 
 // Migrate data from old directory if necessary
@@ -502,6 +503,46 @@ ipcMain.handle('write-pdf-file', async (event, { filePath, base64 }) => {
     fs.writeFileSync(filePath, buffer);
     return { success: true };
   } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('send-invoice-email', async (event, { filePath, emailSettings, clientEmail, subject, body, attachmentName }) => {
+  try {
+    if (!emailSettings || !emailSettings.host || !emailSettings.user || !emailSettings.pass) {
+      throw new Error('Configuración SMTP incompleta o vacía.');
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: emailSettings.host,
+      port: parseInt(emailSettings.port) || 465,
+      secure: emailSettings.secure,
+      auth: {
+        user: emailSettings.user,
+        pass: emailSettings.pass
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    const mailOptions = {
+      from: `"${emailSettings.senderName || 'Facturas LYNX'}" <${emailSettings.user}>`,
+      to: clientEmail,
+      subject: subject || 'Factura de Servicios',
+      text: body || 'Adjunto enviamos el comprobante correspondiente.',
+      attachments: filePath ? [
+        {
+          filename: attachmentName || path.basename(filePath),
+          path: filePath
+        }
+      ] : []
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, message: `Correo enviado con éxito. ID: ${info.messageId}` };
+  } catch (err) {
+    console.error('Error in send-invoice-email handler:', err);
     return { success: false, error: err.message };
   }
 });

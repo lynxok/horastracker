@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   regenerateArcaPDF: (data) => ipcRenderer.invoke('arca-regenerate-pdf', data),
   writePdfFile: (data) => ipcRenderer.invoke('write-pdf-file', data),
+  sendInvoiceEmail: (data) => ipcRenderer.invoke('send-invoice-email', data),
   restartApp: () => ipcRenderer.invoke('restart-app'),
   onUpdateAvailable: (callback) => {
     ipcRenderer.on('update-available', callback);

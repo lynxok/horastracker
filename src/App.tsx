@@ -45,6 +45,7 @@ declare global {
       generateArcaCreditNote: (data: any) => Promise<{ success: boolean; cae?: string; caeVto?: string; numero?: number; filePath?: string; error?: string }>;
       regenerateArcaPDF: (data: { billedMonth: BilledMonth; settings: AppSettings }) => Promise<{ success: boolean; filePath?: string; error?: string }>;
       writePdfFile: (data: { filePath: string; base64: string }) => Promise<{ success: boolean; error?: string }>;
+      sendInvoiceEmail: (data: { filePath?: string; emailSettings: any; clientEmail: string; subject?: string; body?: string; attachmentName?: string }) => Promise<{ success: boolean; message?: string; error?: string }>;
       selectFolder: () => Promise<string | null>;
       selectFile: (filters: { name: string; extensions: string[] }[]) => Promise<string | null>;
       openFile: (path: string) => Promise<{ success: boolean; error?: string }>;
@@ -160,6 +161,15 @@ interface AppSettings {
   smartStatsMode?: 'calendar' | 'worked';
   activeTemplate?: 'official' | 'custom';
   invoiceDesign?: any;
+  emailSettings?: {
+    enabled: boolean;
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    pass: string;
+    senderName?: string;
+  };
 }
 
 const INITIAL_MONOTRIBUTO_CATEGORIES = [
@@ -240,6 +250,15 @@ const DEFAULT_SETTINGS: AppSettings = {
     pdfRightColX: 110,
     pdfLogoX: 15,
     pdfLogoY: 12,
+  },
+  emailSettings: {
+    enabled: false,
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    user: '',
+    pass: '',
+    senderName: 'Facturas LYNX'
   }
 };
 
@@ -1398,6 +1417,30 @@ const App: React.FC = () => {
       }
 
       setBilledMonths([newInvoice, ...billedMonths]);
+
+      // Automated SMTP Email delivery
+      if (settings.emailSettings?.enabled && client.email) {
+        const mailSubject = `Factura N° ${res.numero} - ${settings.arcaInfo.nombreEmisor || 'Servicios'}`;
+        const mailBody = `Estimado/a ${client.name},\n\nLe adjuntamos la Factura C Nro ${res.numero} correspondiente a los servicios de consultoría prestados.\n\nMonto Total: $${formatCurrency(totalAmount)}\n\nSaludos atentos,\n${settings.arcaInfo.nombreEmisor || ''}`;
+        
+        window.electronAPI?.sendInvoiceEmail({
+          filePath: res.filePath,
+          emailSettings: settings.emailSettings,
+          clientEmail: client.email,
+          subject: mailSubject,
+          body: mailBody,
+          attachmentName: `Factura_${res.numero}.pdf`
+        }).then(mailRes => {
+          if (mailRes.success) {
+            addLog('info', 'CORREO', `Factura #${res.numero} enviada automáticamente a ${client.email}`);
+          } else {
+            addLog('error', 'CORREO', `Fallo al enviar correo automático a ${client.email}: ${mailRes.error}`);
+          }
+        }).catch(err => {
+          addLog('error', 'CORREO', `Error de sistema al enviar correo automático: ${err.message}`);
+        });
+      }
+
       setShowInvoicingModal(false);
       
       if (confirm("FACTURA GENERADA CON ÉXITO. ¿Desea abrir el archivo PDF?")) {
@@ -3186,6 +3229,147 @@ const App: React.FC = () => {
                     </tbody>
                   </table>
                 )}
+              </div>
+            </div>
+
+            {/* SECCION 9 - CONFIGURACIÓN DE CORREO (SMTP) */}
+            <div className="premium-card">
+              <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.9rem', marginBottom: '24px' }}>9. CONFIGURACIÓN DE CORREO ELECTRÓNICO (SMTP)</h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <input 
+                    type="checkbox" 
+                    id="smtp-enabled"
+                    checked={settings.emailSettings?.enabled || false}
+                    onChange={(e) => {
+                      const current = settings.emailSettings || { host: '', port: 465, secure: true, user: '', pass: '', senderName: '' };
+                      updateSetting('emailSettings', { ...current, enabled: e.target.checked });
+                    }}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-color)' }}
+                  />
+                  <label htmlFor="smtp-enabled" className="mono-font" style={{ fontSize: '0.75rem', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>
+                    Habilitar envío automático al facturar
+                  </label>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>SERVIDOR SMTP</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ej: smtp.gmail.com" 
+                      value={settings.emailSettings?.host || ''}
+                      onChange={(e) => {
+                        const current = settings.emailSettings || { enabled: false, host: '', port: 465, secure: true, user: '', pass: '', senderName: '' };
+                        updateSetting('emailSettings', { ...current, host: e.target.value });
+                      }}
+                      style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} 
+                    />
+                  </div>
+                  <div>
+                    <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>PUERTO</label>
+                    <input 
+                      type="number" 
+                      placeholder="Ej: 465" 
+                      value={settings.emailSettings?.port || 465}
+                      onChange={(e) => {
+                        const current = settings.emailSettings || { enabled: false, host: '', port: 465, secure: true, user: '', pass: '', senderName: '' };
+                        updateSetting('emailSettings', { ...current, port: parseInt(e.target.value) || 0 });
+                      }}
+                      style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} 
+                    />
+                  </div>
+                  <div>
+                    <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>SEGURIDAD (SSL/TLS)</label>
+                    <select 
+                      value={settings.emailSettings?.secure ? 'true' : 'false'}
+                      onChange={(e) => {
+                        const current = settings.emailSettings || { enabled: false, host: '', port: 465, secure: true, user: '', pass: '', senderName: '' };
+                        updateSetting('emailSettings', { ...current, secure: e.target.value === 'true' });
+                      }}
+                      style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }}>
+                      <option value="true">SSL (Port 465)</option>
+                      <option value="false">TLS/STARTTLS (Port 587/25)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>USUARIO / CORREO</label>
+                    <input 
+                      type="email" 
+                      placeholder="Ej: micorreo@gmail.com" 
+                      value={settings.emailSettings?.user || ''}
+                      onChange={(e) => {
+                        const current = settings.emailSettings || { enabled: false, host: '', port: 465, secure: true, user: '', pass: '', senderName: '' };
+                        updateSetting('emailSettings', { ...current, user: e.target.value });
+                      }}
+                      style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} 
+                    />
+                  </div>
+                  <div>
+                    <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>CONTRASEÑA / APP PASSWORD</label>
+                    <input 
+                      type="password" 
+                      placeholder="••••••••••••••••" 
+                      value={settings.emailSettings?.pass || ''}
+                      onChange={(e) => {
+                        const current = settings.emailSettings || { enabled: false, host: '', port: 465, secure: true, user: '', pass: '', senderName: '' };
+                        updateSetting('emailSettings', { ...current, pass: e.target.value });
+                      }}
+                      style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} 
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>NOMBRE DEL REMITENTE</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ej: Facturas Ignacio Valente" 
+                    value={settings.emailSettings?.senderName || ''}
+                    onChange={(e) => {
+                      const current = settings.emailSettings || { enabled: false, host: '', port: 465, secure: true, user: '', pass: '', senderName: '' };
+                      updateSetting('emailSettings', { ...current, senderName: e.target.value });
+                    }}
+                    style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} 
+                  />
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--surface-border)', paddingTop: '20px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  <button 
+                    onClick={async () => {
+                      const testDest = prompt("Ingresa el correo electrónico destinatario para la prueba:");
+                      if (!testDest) return;
+                      try {
+                        const res = await window.electronAPI?.sendInvoiceEmail({
+                          emailSettings: settings.emailSettings,
+                          clientEmail: testDest,
+                          subject: "Correo de Prueba - LYNX Tracker",
+                          body: "Este es un correo electrónico de prueba enviado desde Chronos Labor OS para verificar la conexión SMTP."
+                        });
+                        if (res?.success) {
+                          alert(`¡Éxito! Correo de prueba enviado: ${res.message}`);
+                          addLog('info', 'CORREO', `Correo de prueba enviado con éxito a ${testDest}`);
+                        } else {
+                          alert(`Error: ${res?.error || 'Desconocido'}`);
+                          addLog('error', 'CORREO', `Fallo en correo de prueba a ${testDest}: ${res?.error}`);
+                        }
+                      } catch (err: any) {
+                        alert(`Error crítico de red/SMTP: ${err.message}`);
+                      }
+                    }}
+                    type="button"
+                    className="btn-secondary" 
+                    style={{ fontSize: '0.75rem', padding: '12px 24px' }}>
+                    PROBAR CONEXIÓN / ENVIAR CORREO DE PRUEBA
+                  </button>
+                  <span className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>
+                    Tip: Si usas Gmail, recuerda generar una "Contraseña de aplicación" (App Password) de 16 dígitos en tu cuenta de Google.
+                  </span>
+                </div>
               </div>
             </div>
           </div>
