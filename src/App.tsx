@@ -19,7 +19,7 @@ import InvoiceDesignSettings from './components/InvoiceDesignSettings';
 import QRCode from 'qrcode';
 
 
-const APP_VERSION = '2.4.3';
+const APP_VERSION = '2.4.4';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -344,6 +344,8 @@ const App: React.FC = () => {
   const [tempClient, setTempClient] = useState<Client>({
     id: '', name: '', cuit: '', domicilio: '', condicionIva: 'IVA Responsable Inscripto', hourlyRate: 5000, workIp: '', email: '', phone: '', workDays: [1, 2, 3, 4, 5]
   });
+
+  const [testEmailRecipient, setTestEmailRecipient] = useState('');
 
   const [showManualInvoiceModal, setShowManualInvoiceModal] = useState(false);
   const [manualInvoice, setManualInvoice] = useState({
@@ -3338,36 +3340,46 @@ const App: React.FC = () => {
                   />
                 </div>
 
-                <div style={{ borderTop: '1px solid var(--surface-border)', paddingTop: '20px', display: 'flex', gap: '16px', alignItems: 'center' }}>
-                  <button 
-                    onClick={async () => {
-                      const testDest = prompt("Ingresa el correo electrónico destinatario para la prueba:");
-                      if (!testDest) return;
-                      try {
-                        const res = await window.electronAPI?.sendInvoiceEmail({
-                          emailSettings: settings.emailSettings,
-                          clientEmail: testDest,
-                          subject: "Correo de Prueba - LYNX Tracker",
-                          body: "Este es un correo electrónico de prueba enviado desde Chronos Labor OS para verificar la conexión SMTP."
-                        });
-                        if (res?.success) {
-                          alert(`¡Éxito! Correo de prueba enviado: ${res.message}`);
-                          addLog('info', 'CORREO', `Correo de prueba enviado con éxito a ${testDest}`);
-                        } else {
-                          alert(`Error: ${res?.error || 'Desconocido'}`);
-                          addLog('error', 'CORREO', `Fallo en correo de prueba a ${testDest}: ${res?.error}`);
+                <div style={{ borderTop: '1px solid var(--surface-border)', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <input 
+                      type="email" 
+                      placeholder="Ingresa correo para enviar prueba (ej: miprueba@mail.com)"
+                      value={testEmailRecipient}
+                      onChange={(e) => setTestEmailRecipient(e.target.value)}
+                      style={{ background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace', flex: 1, maxWidth: '400px' }}
+                    />
+                    <button 
+                      onClick={async () => {
+                        if (!testEmailRecipient) {
+                          return alert("Por favor ingresa un correo destinatario en el campo de texto de la izquierda.");
                         }
-                      } catch (err: any) {
-                        alert(`Error crítico de red/SMTP: ${err.message}`);
-                      }
-                    }}
-                    type="button"
-                    className="btn-secondary" 
-                    style={{ fontSize: '0.75rem', padding: '12px 24px' }}>
-                    PROBAR CONEXIÓN / ENVIAR CORREO DE PRUEBA
-                  </button>
+                        try {
+                          const res = await window.electronAPI?.sendInvoiceEmail({
+                            emailSettings: settings.emailSettings,
+                            clientEmail: testEmailRecipient,
+                            subject: "Correo de Prueba - LYNX Tracker",
+                            body: "Este es un correo electrónico de prueba enviado desde Chronos Labor OS para verificar la conexión SMTP."
+                          });
+                          if (res?.success) {
+                            alert(`¡Éxito! Correo de prueba enviado: ${res.message}`);
+                            addLog('info', 'CORREO', `Correo de prueba enviado con éxito a ${testEmailRecipient}`);
+                          } else {
+                            alert(`Error: ${res?.error || 'Desconocido'}`);
+                            addLog('error', 'CORREO', `Fallo en correo de prueba a ${testEmailRecipient}: ${res?.error}`);
+                          }
+                        } catch (err: any) {
+                          alert(`Error crítico de red/SMTP: ${err.message}`);
+                        }
+                      }}
+                      type="button"
+                      className="btn-secondary" 
+                      style={{ fontSize: '0.75rem', padding: '12px 24px' }}>
+                      PROBAR CONEXIÓN / ENVIAR CORREO DE PRUEBA
+                    </button>
+                  </div>
                   <span className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)' }}>
-                    Tip: Si usas Gmail, recuerda generar una "Contraseña de aplicación" (App Password) de 16 dígitos en tu cuenta de Google.
+                    Tip: Si usas Gmail u Outlook con verificación en dos pasos, recuerda generar una "Contraseña de aplicación" en tu cuenta y usarla aquí.
                   </span>
                 </div>
               </div>
