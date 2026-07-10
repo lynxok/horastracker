@@ -152,7 +152,7 @@ interface AppSettings {
     monotributoCategory?: string;
   };
   invoicePath?: string;
-  theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean' | 'harry-potter' | 'marvel' | 'loki' | 'winamp';
+  theme?: 'cyberpunk' | 'matrix' | 'minimal' | 'deep-ocean' | 'harry-potter' | 'marvel' | 'loki' | 'winamp' | 'liquid-glass';
   widgetOpacity: number;
   widgetMode?: 'floating' | 'top-bar';
   widgetEnabled: boolean;
@@ -1717,6 +1717,22 @@ const App: React.FC = () => {
   // --- WIDGET LOGIC & CONFIG ---
   const getThemeWidgetConfig = () => {
     switch(settings.theme) {
+      case 'liquid-glass':
+        return {
+          icon: <Cpu size={24} color="#00f0ff" />,
+          borderRadius: '16px',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          background: 'rgba(255, 255, 255, 0.08)',
+          label: isWidgetHovered && activeSessionId ? '💧 LIQUID PAYOUT' : '🔮 GLASS CORE',
+          labelColor: '#00f0ff',
+          accentColor: '#00f0ff',
+          customStyle: {
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            boxShadow: '0 8px 32px 0 rgba(0, 240, 255, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.1)',
+            textShadow: '0 0 8px rgba(0, 240, 255, 0.5)'
+          }
+        };
       case 'harry-potter':
         return {
           icon: <Bird size={24} color="#5d4037" />,

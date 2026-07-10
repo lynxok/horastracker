@@ -119,6 +119,24 @@
   --glass-reflection: linear-gradient(135deg, rgba(212, 117, 34, 0.1) 0%, transparent 100%);
 }
 
+:root[data-theme='liquid-glass'] {
+  --bg-color: #080c14;
+  --surface-color: rgba(255, 255, 255, 0.05);
+  --surface-border: rgba(255, 255, 255, 0.15);
+  --accent-color: #00f0ff;
+  --accent-glow: rgba(0, 240, 255, 0.35);
+  --accent-secondary: #d946ef;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --success: #10b981;
+  --success-glow: rgba(16, 185, 129, 0.2);
+  --danger: #f43f5e;
+  --danger-glow: rgba(244, 63, 94, 0.2);
+  --transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  --glass-reflection: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, transparent 100%);
+}
+
+
 :root {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.5;

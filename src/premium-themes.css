@@ -108,6 +108,33 @@
   --glow-effect: 0 0 20px var(--accent-glow), 0 0 40px rgba(56, 189, 248, 0.1);
 }
 
+/* ========== LIQUID GLASS THEME ========== */
+:root[data-theme='liquid-glass'] {
+  --bg-color: #0b0f19;
+  --surface-color: rgba(255, 255, 255, 0.05);
+  --surface-border: rgba(255, 255, 255, 0.12);
+  --accent-color: #00f0ff;
+  --accent-glow: rgba(0, 240, 255, 0.4);
+  --accent-secondary: #d946ef;
+  --accent-tertiary: #6366f1;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --success: #10b981;
+  --success-glow: rgba(16, 185, 129, 0.3);
+  --danger: #f43f5e;
+  --danger-glow: rgba(244, 63, 94, 0.3);
+  --warning: #f59e0b;
+  --warning-glow: rgba(245, 158, 11, 0.3);
+  --transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --glass-reflection: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.02) 100%);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 8px 32px 0 rgba(0, 240, 255, 0.05), 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 16px 48px rgba(0, 240, 255, 0.1), 0 16px 48px rgba(0, 0, 0, 0.3);
+  --glow-effect: 0 0 25px var(--accent-glow), 0 0 50px rgba(0, 240, 255, 0.15);
+}
+
 /* Más temas... */
 @keyframes modulatePulse {
   0% { opacity: 1; box-shadow: 0 0 15px var(--accent-glow); }

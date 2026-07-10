@@ -63,6 +63,13 @@ const THEMES = [
     colors: ['#00dd00', '#008800', '#00aa00'],
     icon: '🎵',
     description: 'Retro player classic'
+  },
+  {
+    id: 'liquid-glass',
+    name: 'Liquid Glass',
+    colors: ['#00f0ff', '#d946ef', '#6366f1'],
+    icon: '💧',
+    description: 'Glassmorphism and fluid glow'
   }
 ];
 

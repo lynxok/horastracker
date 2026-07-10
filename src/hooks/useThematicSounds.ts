@@ -56,6 +56,24 @@ export const useThematicSounds = () => {
         osc.start(now);
         osc.stop(now + 0.2);
         break;
+      case 'liquid-glass':
+        osc.type = 'triangle';
+        if (type === 'punch-in') {
+          osc.frequency.setValueAtTime(300, now);
+          osc.frequency.exponentialRampToValueAtTime(1200, now + 0.15);
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+          osc.start(now);
+          osc.stop(now + 0.2);
+        } else {
+          osc.frequency.setValueAtTime(1000, now);
+          osc.frequency.exponentialRampToValueAtTime(150, now + 0.25);
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+          osc.start(now);
+          osc.stop(now + 0.3);
+        }
+        break;
 
       default:
         // Default click sound
