@@ -1168,7 +1168,28 @@ const App: React.FC = () => {
   const saveClient = () => {
     let newClients = [...settings.clients];
     if (editClientId) {
+      const oldClient = settings.clients.find(c => c.id === editClientId);
+      const rateChanged = oldClient && oldClient.hourlyRate !== tempClient.hourlyRate;
+
       newClients = newClients.map(c => c.id === editClientId ? { ...tempClient, id: editClientId } : c);
+
+      if (rateChanged && tempClient.hourlyRate !== undefined) {
+        const unInvoicedSessions = sessions.filter(s => s.clientId === editClientId && !s.invoiced);
+        if (unInvoicedSessions.length > 0) {
+          const confirmChange = confirm(
+            `El valor de la hora cambió de $${oldClient.hourlyRate} a $${tempClient.hourlyRate}.\n¿Deseas actualizar también la tarifa de las ${unInvoicedSessions.length} sesión(es) no facturadas de este cliente?`
+          );
+          if (confirmChange) {
+            const updatedSessions = sessions.map(s => 
+              (s.clientId === editClientId && !s.invoiced)
+                ? { ...s, rate: tempClient.hourlyRate }
+                : s
+            );
+            setSessions(updatedSessions);
+            addLog('info', 'SISTEMA', `Tarifas actualizadas para ${unInvoicedSessions.length} sesiones no facturadas del cliente: ${tempClient.name}`);
+          }
+        }
+      }
     } else {
       newClients.push({ ...tempClient, id: Date.now().toString() });
     }
