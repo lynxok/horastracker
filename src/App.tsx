@@ -19,7 +19,7 @@ import InvoiceDesignSettings from './components/InvoiceDesignSettings';
 import QRCode from 'qrcode';
 
 
-const APP_VERSION = '2.3.86';
+const APP_VERSION = '2.4.2';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
