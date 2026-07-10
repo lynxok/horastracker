@@ -496,6 +496,16 @@ ipcMain.handle('arca-generate-csr', async (event, { cuit, name }) => {
   }
 });
 
+ipcMain.handle('write-pdf-file', async (event, { filePath, base64 }) => {
+  try {
+    const buffer = Buffer.from(base64, 'base64');
+    fs.writeFileSync(filePath, buffer);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('arca-regenerate-pdf', async (event, { billedMonth, settings }) => {
   try {
     const userDataPath = app.getPath('userData');
@@ -1097,7 +1107,7 @@ ipcMain.handle('arca-generate-invoice', async (event, { settings, client, amount
         monto: amount, cae: res.cae, caeVe: res.caeFchVto, qrBase64
       }, fullPath);
 
-      return { success: true, cae: res.cae, numero: nro, filePath: fullPath };
+      return { success: true, cae: res.cae, caeVto: res.caeFchVto, numero: nro, filePath: fullPath };
     } else {
       let errorMsg = 'No se recibió el CAE de AFIP.';
       
@@ -1214,7 +1224,7 @@ ipcMain.handle('arca-generate-credit-note', async (event, { settings, invoice, c
         monto: invoice.totalAmount, cae: res.cae, caeVe: res.caeFchVto, qrBase64
       }, fullPath);
 
-      return { success: true, cae: res.cae, numero: nro, filePath: fullPath };
+      return { success: true, cae: res.cae, caeVto: res.caeFchVto, numero: nro, filePath: fullPath };
     } else {
       let errorMsg = 'No se recibió el CAE de la Nota de Crédito.';
       if (res && res.response && res.response.Errors) {

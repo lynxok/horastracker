@@ -14,6 +14,9 @@ import {
   startOfDay, endOfDay, subDays
 } from 'date-fns';
 import { ThemeSelector } from './components/ThemeSelector';
+import { generateInvoicePDF } from './utils/pdfGenerator';
+import InvoiceDesignSettings from './components/InvoiceDesignSettings';
+import QRCode from 'qrcode';
 
 
 const APP_VERSION = '2.3.86';
@@ -38,9 +41,10 @@ declare global {
       syncTrayData: (data: { clients: any[]; activeSession: any | null }) => void;
       generateArcaCSR: (data: any) => Promise<{ success: boolean; folder?: string; keyPath?: string; csrPath?: string; msg?: string; error?: string }>;
       testArcaConnection: (settings: any) => Promise<{ success: boolean; status?: any; error?: string; detailed?: string; certInfo?: string }>;
-      generateArcaInvoice: (data: any) => Promise<{ success: boolean; cae?: string; numero?: number; filePath?: string; error?: string }>;
-      generateArcaCreditNote: (data: any) => Promise<{ success: boolean; cae?: string; numero?: number; filePath?: string; error?: string }>;
+      generateArcaInvoice: (data: any) => Promise<{ success: boolean; cae?: string; caeVto?: string; numero?: number; filePath?: string; error?: string }>;
+      generateArcaCreditNote: (data: any) => Promise<{ success: boolean; cae?: string; caeVto?: string; numero?: number; filePath?: string; error?: string }>;
       regenerateArcaPDF: (data: { billedMonth: BilledMonth; settings: AppSettings }) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+      writePdfFile: (data: { filePath: string; base64: string }) => Promise<{ success: boolean; error?: string }>;
       selectFolder: () => Promise<string | null>;
       selectFile: (filters: { name: string; extensions: string[] }[]) => Promise<string | null>;
       openFile: (path: string) => Promise<{ success: boolean; error?: string }>;
@@ -125,6 +129,7 @@ interface BilledMonth {
   clientName?: string;
   serviceStart?: string;
   serviceEnd?: string;
+  caeVto?: string;
   periodMonth?: string; // Format: yyyy-MM
 }
 
@@ -153,6 +158,8 @@ interface AppSettings {
   widgetEnabled: boolean;
   monotributoCategories: { id: string; limit: number }[];
   smartStatsMode?: 'calendar' | 'worked';
+  activeTemplate?: 'official' | 'custom';
+  invoiceDesign?: any;
 }
 
 const INITIAL_MONOTRIBUTO_CATEGORIES = [
@@ -204,7 +211,36 @@ const DEFAULT_SETTINGS: AppSettings = {
   widgetMode: 'floating',
   widgetEnabled: true,
   smartStatsMode: 'calendar',
-  monotributoCategories: INITIAL_MONOTRIBUTO_CATEGORIES
+  monotributoCategories: INITIAL_MONOTRIBUTO_CATEGORIES,
+  activeTemplate: 'official',
+  invoiceDesign: {
+    invoiceLogo: "",
+    pdfColorPalette: "slate",
+    pdfLogoPosition: "izquierda",
+    pdfLogoSizeWidth: 30,
+    pdfLynxLogo: "",
+    pdfLynxPosition: "abajo_derecha",
+    pdfLynxSize: 25,
+    pdfLynxOpacity: 0.08,
+    pdfHeaderHeight: 55,
+    pdfCompanyNameSize: 16,
+    pdfCompanyNameY: 25,
+    pdfRightColTitleSize: 18,
+    pdfRightColDetailsSize: 9,
+    pdfRightColY: 15,
+    pdfInvoiceTypeX: 95,
+    pdfInvoiceTypeY: 10,
+    pdfTableStartY: 98,
+    domicilioComercial: 'Av. Siempre Viva 123, CABA',
+    nombreFantasia: 'Ignacio Valente',
+    inicioActividad: '01/05/2026',
+    ingresosBrutos: '20326691314',
+    pdfLeftColAlign: "centrado",
+    pdfLeftColX: 15,
+    pdfRightColX: 110,
+    pdfLogoX: 15,
+    pdfLogoY: 12,
+  }
 };
 
 import { useThematicSounds } from './hooks/useThematicSounds';
@@ -1043,6 +1079,50 @@ const App: React.FC = () => {
       const res = await window.electronAPI.regenerateArcaPDF({ billedMonth: bm, settings });
       
       if (res.success && res.filePath) {
+        // If activeTemplate is custom, overwrite it immediately
+        if (settings.activeTemplate === 'custom') {
+          const client = settings.clients.find((c: any) => c.name === bm.clientName || c.id === bm.clientId) || settings.clients[0];
+          const pv = (settings.arcaInfo.puntoVenta || "2").toString();
+          
+          // Reconstruct QR code
+          const qrData = {
+            ver: 1,
+            fecha: bm.date.substring(0, 10),
+            cuit: parseInt(settings.arcaInfo.cuit.replace(/-/g, '')),
+            ptoVta: parseInt(pv),
+            tipoCmp: 11, // Factura C
+            nroCmp: bm.invoiceNumber,
+            importe: parseFloat(bm.totalAmount.toFixed(2)),
+            moneda: "PES",
+            ctz: 1,
+            tipoDocRec: client.cuit.replace(/-/g, '').length > 8 ? 80 : 96,
+            nroDocRec: parseInt(client.cuit.replace(/-/g, '')),
+            tipoCodAut: "E",
+            codAut: parseInt(bm.cae || "0")
+          };
+          const qrUrl = 'https://www.afip.gob.ar/fe/qr/?p=' + btoa(JSON.stringify(qrData));
+          const qrBase64 = await QRCode.toDataURL(qrUrl);
+
+          const invoiceData = {
+            ptoVta: pv,
+            voucherNumber: bm.invoiceNumber,
+            date: bm.date,
+            amount: bm.totalAmount,
+            description: `Servicios de Consultoría - Período ${new Date(bm.serviceStart || bm.date).toLocaleDateString('es-AR')} al ${new Date(bm.serviceEnd || bm.date).toLocaleDateString('es-AR')}`,
+            clientCuit: client.cuit,
+            clientName: bm.clientName || client.name,
+            cae: bm.cae,
+            caeVto: bm.caeVto,
+            qrBase64
+          };
+
+          const customPdfBase64 = (await generateInvoicePDF(invoiceData, settings.invoiceDesign, 'base64')) as string;
+          const writeRes = await window.electronAPI.writePdfFile({ filePath: res.filePath || '', base64: customPdfBase64 });
+          if (!writeRes.success) {
+            throw new Error(writeRes.error || 'Fallo al sobreescribir con la plantilla personalizada');
+          }
+        }
+
         addLog('info', 'SISTEMA', `PDF regenerado exitosamente: ${res.filePath}`);
         setBilledMonths(prev => prev.map(item => item.id === bm.id ? { ...item, filePath: res.filePath } : item));
         window.electronAPI.openFile(res.filePath);
@@ -1249,6 +1329,53 @@ const App: React.FC = () => {
         periodMonth: format(parseISO(earliest), 'yyyy-MM')
       };
 
+      // If template is custom, generate and overwrite with the custom designer template PDF
+      if (settings.activeTemplate === 'custom') {
+        try {
+          const pv = (settings.arcaInfo.puntoVenta || "2").toString();
+          
+          // Reconstruct QR code
+          const qrData = {
+            ver: 1,
+            fecha: new Date().toISOString().substring(0, 10),
+            cuit: parseInt(settings.arcaInfo.cuit.replace(/-/g, '')),
+            ptoVta: parseInt(pv),
+            tipoCmp: 11, // Factura C
+            nroCmp: res.numero,
+            importe: parseFloat(totalAmount.toFixed(2)),
+            moneda: "PES",
+            ctz: 1,
+            tipoDocRec: client.cuit.replace(/-/g, '').length > 8 ? 80 : 96,
+            nroDocRec: parseInt(client.cuit.replace(/-/g, '')),
+            tipoCodAut: "E",
+            codAut: parseInt(res.cae || "0")
+          };
+          const qrUrl = 'https://www.afip.gob.ar/fe/qr/?p=' + btoa(JSON.stringify(qrData));
+          const qrBase64 = await QRCode.toDataURL(qrUrl);
+
+          const invoiceData = {
+            ptoVta: pv,
+            voucherNumber: res.numero,
+            date: new Date().toISOString(),
+            amount: totalAmount,
+            description: `Servicios de Consultoría - Período ${new Date(earliest).toLocaleDateString('es-AR')} al ${new Date(latest).toLocaleDateString('es-AR')}`,
+            clientCuit: client.cuit,
+            clientName: client.name,
+            cae: res.cae,
+            caeVto: res.caeVto || '',
+            qrBase64
+          };
+
+          const customPdfBase64 = (await generateInvoicePDF(invoiceData, settings.invoiceDesign, 'base64')) as string;
+          const writeRes = await window.electronAPI.writePdfFile({ filePath: res.filePath || '', base64: customPdfBase64 });
+          if (!writeRes.success) {
+            throw new Error(writeRes.error || 'Fallo al sobreescribir con la plantilla personalizada');
+          }
+        } catch (err: any) {
+          addLog('error', 'FACTURACIÓN', `Error al aplicar plantilla personalizada: ${err.message}`);
+        }
+      }
+
       setBilledMonths([newInvoice, ...billedMonths]);
       setShowInvoicingModal(false);
       
@@ -1282,6 +1409,52 @@ const App: React.FC = () => {
     });
 
     if (res.success) {
+      if (settings.activeTemplate === 'custom') {
+        try {
+          const pv = (settings.arcaInfo.puntoVenta || "2").toString();
+          
+          // Reconstruct QR code for Credit Note (tipoCmp: 13 for Nota de Crédito C)
+          const qrData = {
+            ver: 1,
+            fecha: new Date().toISOString().substring(0, 10),
+            cuit: parseInt(settings.arcaInfo.cuit.replace(/-/g, '')),
+            ptoVta: parseInt(pv),
+            tipoCmp: 13, // Nota de Crédito C
+            nroCmp: res.numero,
+            importe: parseFloat(invoice.totalAmount.toFixed(2)),
+            moneda: "PES",
+            ctz: 1,
+            tipoDocRec: client.cuit.replace(/-/g, '').length > 8 ? 80 : 96,
+            nroDocRec: parseInt(client.cuit.replace(/-/g, '')),
+            tipoCodAut: "E",
+            codAut: parseInt(res.cae || "0")
+          };
+          const qrUrl = 'https://www.afip.gob.ar/fe/qr/?p=' + btoa(JSON.stringify(qrData));
+          const qrBase64 = await QRCode.toDataURL(qrUrl);
+
+          const invoiceData = {
+            ptoVta: pv,
+            voucherNumber: res.numero,
+            date: new Date().toISOString(),
+            amount: invoice.totalAmount,
+            description: `Anulación de Factura C Nro ${invoice.invoiceNumber}`,
+            clientCuit: client.cuit,
+            clientName: client.name,
+            cae: res.cae,
+            caeVto: res.caeVto || '',
+            qrBase64
+          };
+
+          const customPdfBase64 = (await generateInvoicePDF(invoiceData, settings.invoiceDesign, 'base64')) as string;
+          const writeRes = await window.electronAPI.writePdfFile({ filePath: res.filePath || '', base64: customPdfBase64 });
+          if (!writeRes.success) {
+            throw new Error(writeRes.error || 'Fallo al sobreescribir nota de crédito con la plantilla personalizada');
+          }
+        } catch (err: any) {
+          addLog('error', 'FACTURACIÓN', `Error al aplicar plantilla personalizada a Nota de Crédito: ${err.message}`);
+        }
+      }
+
       setBilledMonths(billedMonths.map(m => m.id === invoice.id ? { ...m, status: 'CANCELLED' } : m));
       // Release sessions
       setSessions(sessions.map(s => s.invoiceId === invoice.id ? { ...s, invoiced: false, invoiceId: undefined } : s));
@@ -2900,10 +3073,40 @@ const App: React.FC = () => {
               )}
             </div>
 
-            {/* SECCION 7 - LOG DE ERRORES */}
+            {/* SECCION 7 - ELECCIÓN Y DISEÑO DE PLANTILLA */}
+            <div className="premium-card">
+              <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.9rem', marginBottom: '24px' }}>7. ELECCIÓN DE PLANTILLA DE FACTURA</h3>
+              
+              <div>
+                <label className="mono-font" style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>TIPO DE PLANTILLA ACTIVA PARA FACTURAS</label>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+                  <button 
+                    onClick={() => updateSetting('activeTemplate', 'official')}
+                    className={settings.activeTemplate === 'official' ? 'btn-primary' : 'btn-secondary'}
+                    style={{ flex: 1, fontSize: '0.75rem', padding: '10px' }}>
+                    PLANTILLA OFICIAL AFIP (ESTÁNDAR)
+                  </button>
+                  <button 
+                    onClick={() => updateSetting('activeTemplate', 'custom')}
+                    className={settings.activeTemplate === 'custom' ? 'btn-primary' : 'btn-secondary'}
+                    style={{ flex: 1, fontSize: '0.75rem', padding: '10px' }}>
+                    PLANTILLA PERSONALIZABLE (PREMIUM)
+                  </button>
+                </div>
+              </div>
+
+              {settings.activeTemplate === 'custom' && (
+                <InvoiceDesignSettings 
+                  settings={settings}
+                  updateSetting={updateSetting}
+                />
+              )}
+            </div>
+
+            {/* SECCION 8 - LOG DE ERRORES */}
             <div className="premium-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.9rem' }}>7. REGISTRO TÉCNICO (ERROR LOG)</h3>
+                <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.9rem' }}>8. REGISTRO TÉCNICO (ERROR LOG)</h3>
                 <button 
                   onClick={() => {
                     if (confirm('¿Deseas limpiar el historial de logs?')) setSystemLogs([]);
