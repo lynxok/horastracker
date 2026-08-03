@@ -1170,14 +1170,20 @@ const App: React.FC = () => {
       setArcaStatus({ type: 'error', msg: 'Primero ingresa tu CUIT en la configuración.' });
       return;
     }
+    const aliasInput = window.prompt(
+      'Ingresa el nombre del Alias que vas a usar o crear en AFIP (ej: LYNX_PROD2):',
+      'LYNX_PROD2'
+    );
+    if (!aliasInput || !aliasInput.trim()) return;
+
     setArcaTesting(true);
     const res = await window.electronAPI?.generateArcaCSR({ 
       cuit: settings.arcaInfo.cuit, 
-      name: 'LYNX_OS' 
+      alias: aliasInput.trim() 
     });
     setArcaTesting(false);
     if (res?.success) {
-      const msg = `¡Éxito! Archivos generados en:\n${res.folder}\n\n1. Sube el pedido.csr a AFIP.\n2. Descarga el .crt y cárgalo aquí.`;
+      const msg = `¡Éxito! Archivos generados para el Alias "${aliasInput.trim()}" en:\n${res.folder}\n\n1. Sube el pedido.csr a AFIP.\n2. Descarga el .crt y cárgalo aquí.`;
       setArcaStatus({ type: 'success', msg: res.msg! });
       alert(msg);
     } else {

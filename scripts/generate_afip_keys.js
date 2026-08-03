@@ -4,7 +4,7 @@ const path = require('path');
 
 // Datos para el CSR (Basados en tu recibo C)
 const CUIT = '20326691314';
-const COMMON_NAME = 'VALENTE IGNACIO';
+const COMMON_NAME = 'LYNX_PROD2';
 const ORGANIZATION = 'VALENTE IGNACIO';
 const COUNTRY = 'AR';
 
@@ -29,9 +29,11 @@ async function generate() {
     csr.publicKey = keys.publicKey;
     csr.setSubject([
         { name: 'commonName', value: COMMON_NAME },
-        { name: 'countryName', value: COUNTRY },
-        { name: 'organizationName', value: ORGANIZATION },
-        { name: 'serialNumber', value: `CUIT ${CUIT}` }
+        { 
+            type: '2.5.4.5', 
+            value: `CUIT ${CUIT}`,
+            valueTagClass: forge.asn1.Type.PRINTABLESTRING 
+        }
     ]);
 
     // Firmar con la clave privada propia

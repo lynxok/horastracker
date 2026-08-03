@@ -451,10 +451,12 @@ ipcMain.handle('select-file', async (event, filters) => {
   return filePaths[0];
 });
 
-ipcMain.handle('arca-generate-csr', async (event, { cuit, name }) => {
+ipcMain.handle('arca-generate-csr', async (event, { cuit, name, alias }) => {
   try {
     if (!cuit) throw new Error('El CUIT es obligatorio para generar el pedido (CSR)');
     
+    const aliasName = (alias || name || 'LYNX_PROD').trim();
+
     const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
       title: 'Selecciona carpeta para guardar los archivos (.key y .csr)',
       properties: ['openDirectory']
@@ -467,30 +469,45 @@ ipcMain.handle('arca-generate-csr', async (event, { cuit, name }) => {
     const keys = forge.pki.rsa.generateKeyPair(2048);
     const privateKeyPem = forge.pki.privateKeyToPem(keys.privateKey);
 
-    // 2. Create CSR
+    // 2. Create CSR with AFIP PrintableString standard
     const csr = forge.pki.createCertificationRequest();
     csr.publicKey = keys.publicKey;
     csr.setSubject([
-      { name: 'commonName', value: name || 'Tracker de Horas' },
-      { name: 'serialNumber', value: `CUIT ${cuit.replace(/-/g, '')}` },
-      { name: 'organizationName', value: 'LYNX_CONSULTING' }
+      { name: 'commonName', value: aliasName },
+      { 
+        type: '2.5.4.5', 
+        value: `CUIT ${cuit.replace(/-/g, '')}`,
+        valueTagClass: forge.asn1.Type.PRINTABLESTRING 
+      }
     ]);
     csr.sign(keys.privateKey);
     const csrPem = forge.pki.certificationRequestToPem(csr);
 
-    // 3. Save files
+    // 3. Save files in selected folder
     const keyPath = path.join(folder, 'privada.key');
     const csrPath = path.join(folder, 'pedido.csr');
 
     fs.writeFileSync(keyPath, privateKeyPem);
     fs.writeFileSync(csrPath, csrPem);
 
+    // Auto-copy to certs folder for app use
+    try {
+      const certsDir = isDev 
+        ? path.join(__dirname, '..', 'certs') 
+        : path.join(process.resourcesPath, 'certs');
+      if (!fs.existsSync(certsDir)) fs.mkdirSync(certsDir, { recursive: true });
+      fs.writeFileSync(path.join(certsDir, 'privada.key'), privateKeyPem);
+      fs.writeFileSync(path.join(certsDir, 'pedido.csr'), csrPem);
+    } catch (e) {
+      console.warn('Auto-copy to certs folder warning:', e.message);
+    }
+
     return { 
       success: true, 
       folder, 
       keyPath, 
       csrPath,
-      msg: '¡Éxito! Archivos privada.key y pedido.csr generados.'
+      msg: `¡Éxito! Archivos privada.key y pedido.csr generados para el Alias "${aliasName}".`
     };
   } catch (err) {
     return { success: false, error: err.message };
@@ -961,19 +978,44 @@ async function generatePDF(templateData, savePath) {
 
 ipcMain.handle('arca-test-connection', async (event, settings) => {
   try {
+    const certPath = settings.arcaInfo.certPath;
+    const keyPath = settings.arcaInfo.keyPath;
+
+    // Verify key match before connecting
+    if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+      try {
+        const certPem = fs.readFileSync(certPath, 'utf8');
+        const keyPem = fs.readFileSync(keyPath, 'utf8');
+        const cert = forge.pki.certificateFromPem(certPem);
+        const privateKey = forge.pki.privateKeyFromPem(keyPem);
+        const pubFromCert = forge.pki.publicKeyToPem(cert.publicKey);
+        const pubFromKey = forge.pki.publicKeyToPem(forge.pki.setRsaPublicKey(privateKey.n, privateKey.e));
+
+        if (pubFromCert !== pubFromKey) {
+          const subject = cert.subject.getField('CN') ? cert.subject.getField('CN').value : 'N/A';
+          return {
+            success: false,
+            error: 'La clave privada (.key) y el certificado (.crt) no corresponden entre sí.',
+            certInfo: `DESPAREJADOS: El certificado (${subject}) no fue generado con la clave privada configurada.`
+          };
+        }
+      } catch (e) {
+        console.warn('Error verificando coincidencia de clave/cert:', e.message);
+      }
+    }
+
     const afip = getAfipInstance(settings.arcaInfo);
     const status = await afip.electronicBillingService.getServerStatus();
     
     // Diagnostic info about the certificate
     let certInfo = "No se pudo leer la info del certificado";
     try {
-      const certPath = settings.arcaInfo.certPath;
       if (fs.existsSync(certPath)) {
         const certData = fs.readFileSync(certPath, 'utf8');
         const cert = forge.pki.certificateFromPem(certData);
         const subject = cert.subject.getField('CN') ? cert.subject.getField('CN').value : 'N/A';
         const expiry = cert.validity.notAfter;
-        certInfo = `Certificado para: ${subject} | Vence: ${expiry.toLocaleDateString('es-AR')}`;
+        certInfo = `Certificado OK para: ${subject} | Vence: ${expiry.toLocaleDateString('es-AR')}`;
       }
     } catch (e) {
       certInfo = `Error leyendo cert: ${e.message}`;
