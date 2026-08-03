@@ -2767,11 +2767,19 @@ const App: React.FC = () => {
                 <div>
                    <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>META DE INGRESOS MENSUAL ($)</label>
                    <input 
-                    type="number" 
-                    value={settings.monthlyGoal} 
-                    onChange={e => updateSetting('monthlyGoal', Number(e.target.value))}
+                    type="text" 
+                    inputMode="numeric"
+                    value={settings.monthlyGoal === 0 ? '' : settings.monthlyGoal} 
+                    onChange={e => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      updateSetting('monthlyGoal', val ? parseInt(val, 10) : 0);
+                    }}
+                    placeholder="Ej: 4200000"
                     style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} 
                    />
+                   <div className="mono-font" style={{ fontSize: '0.65rem', color: 'var(--accent-color)', marginTop: '6px' }}>
+                     Monto objetivo: ${formatCurrency(settings.monthlyGoal || 0)}
+                   </div>
                 </div>
               </div>
             </div>
@@ -3676,14 +3684,15 @@ const App: React.FC = () => {
             <div className="settings-group">
               <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem' }}>Nuevo Objetivo Mensual ($)</label>
               <input 
-                type="number" 
+                type="text" 
+                inputMode="numeric"
                 autoFocus
                 style={{ width: '100%' }} 
                 value={tempGoalValue} 
-                onChange={e => setTempGoalValue(e.target.value)}
+                onChange={e => setTempGoalValue(e.target.value.replace(/[^0-9]/g, ''))}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
-                    const val = parseFloat(tempGoalValue);
+                    const val = parseInt(tempGoalValue.replace(/[^0-9]/g, ''), 10);
                     if (!isNaN(val)) {
                       handleUpdateMonthlyGoal(editingGoal.key, val);
                       setEditingGoal(null);
@@ -3695,7 +3704,7 @@ const App: React.FC = () => {
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '25px' }}>
               <button className="btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => {
-                const val = parseFloat(tempGoalValue);
+                const val = parseInt(tempGoalValue.replace(/[^0-9]/g, ''), 10);
                 if (!isNaN(val)) {
                   handleUpdateMonthlyGoal(editingGoal.key, val);
                   setEditingGoal(null);
