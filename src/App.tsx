@@ -143,6 +143,7 @@ interface AppSettings {
   monthlyGoal: number;
   arcaInfo: {
     cuit: string;
+    alias?: string;
     nombreEmisor?: string;
     domicilioComercial?: string;
     puntoVenta: string;
@@ -1170,20 +1171,19 @@ const App: React.FC = () => {
       setArcaStatus({ type: 'error', msg: 'Primero ingresa tu CUIT en la configuración.' });
       return;
     }
-    const aliasInput = window.prompt(
-      'Ingresa el nombre del Alias que vas a usar o crear en AFIP (ej: LYNX_PROD2):',
-      'LYNX_PROD2'
-    );
-    if (!aliasInput || !aliasInput.trim()) return;
+    const targetAlias = (settings.arcaInfo.alias || 'LYNX_PROD2').trim();
 
     setArcaTesting(true);
     const res = await window.electronAPI?.generateArcaCSR({ 
       cuit: settings.arcaInfo.cuit, 
-      alias: aliasInput.trim() 
+      alias: targetAlias 
     });
     setArcaTesting(false);
     if (res?.success) {
-      const msg = `¡Éxito! Archivos generados para el Alias "${aliasInput.trim()}" en:\n${res.folder}\n\n1. Sube el pedido.csr a AFIP.\n2. Descarga el .crt y cárgalo aquí.`;
+      if (res.keyPath) {
+        updateArcaSetting('keyPath', res.keyPath);
+      }
+      const msg = `¡Éxito! Archivos generados para el Alias "${targetAlias}" en:\n${res.folder}\n\n1. Se actualizó automáticamente la ruta de la Clave Privada (.key).\n2. Sube el pedido.csr a AFIP.\n3. Descarga el .crt de AFIP y cárgalo aquí.`;
       setArcaStatus({ type: 'success', msg: res.msg! });
       alert(msg);
     } else {
@@ -2999,7 +2999,7 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div>
                   <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>CUIT DEL EMISOR</label>
                   <input type="text" value={settings.arcaInfo.cuit} onChange={e => updateArcaSetting('cuit', e.target.value)} placeholder="Ej: 20304445551"
@@ -3008,6 +3008,11 @@ const App: React.FC = () => {
                 <div>
                   <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>PUNTO DE VENTA HAB.</label>
                   <input type="text" value={settings.arcaInfo.puntoVenta} onChange={e => updateArcaSetting('puntoVenta', e.target.value)} placeholder="Ej: 2"
+                    style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
+                </div>
+                <div>
+                  <label className="mono-font" style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>ALIAS AFIP (PARA CSR)</label>
+                  <input type="text" value={settings.arcaInfo.alias || 'LYNX_PROD2'} onChange={e => updateArcaSetting('alias', e.target.value)} placeholder="Ej: LYNX_PROD2"
                     style={{ width: '100%', background: '#000', border: '1px solid var(--surface-border)', padding: '12px', color: 'white', fontFamily: 'monospace' }} />
                 </div>
               </div>
