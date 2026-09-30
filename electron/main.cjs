@@ -72,16 +72,17 @@ migrateData();
 const rawUserName = process.env.USERNAME || process.env.USER || 'default';
 const activeUser = rawUserName.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
 
-// Detect if running from cloud repository or bundled app
+// When app is packaged (.asar), __dirname is inside app.asar so repo paths cannot be created
+// Only treat as repo environment if NOT packaged and package.json actually exists on real disk
+const isPackagedApp = app.isPackaged || __dirname.includes('app.asar');
 const repoRootDir = path.resolve(__dirname, '..');
-const cloudUserDir = path.join(repoRootDir, 'usuarios', activeUser);
-const isRepoEnvironment = fs.existsSync(path.join(repoRootDir, 'package.json'));
+const isRepoEnvironment = !isPackagedApp && fs.existsSync(path.join(repoRootDir, 'package.json'));
 
-// If running in repo (e.g. OneDrive shared folder), isolate in usuarios/<user>/
-// Otherwise fallback to appData/tracker-de-horas
+// In repo environment (e.g. OneDrive shared dev folder), isolate in <repo>/usuarios/<user>/
+// In packaged app, isolate in appData/tracker-de-horas/usuarios/<user>/
 const baseStoragePath = isRepoEnvironment 
-  ? cloudUserDir 
-  : path.join(app.getPath('appData'), 'tracker-de-horas');
+  ? path.join(repoRootDir, 'usuarios', activeUser)
+  : path.join(app.getPath('appData'), 'tracker-de-horas', 'usuarios', activeUser);
 
 const userDataPath = baseStoragePath;
 app.setPath('userData', userDataPath);
@@ -96,13 +97,13 @@ const userTicketsPath = path.join(userDataPath, 'afip_tickets');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// Auto-migrate local appData session_data.json to cloud user folder if empty
-if (isRepoEnvironment && !fs.existsSync(dataFilePath)) {
-  const localAppDataFile = path.join(app.getPath('appData'), 'tracker-de-horas', 'session_data.json');
-  if (fs.existsSync(localAppDataFile)) {
+// Auto-migrate previous session_data.json to user-isolated folder if newly created
+if (!fs.existsSync(dataFilePath)) {
+  const legacyAppDataFile = path.join(app.getPath('appData'), 'tracker-de-horas', 'session_data.json');
+  if (fs.existsSync(legacyAppDataFile)) {
     try {
-      console.log(`Cloning initial session data from local appData to ${dataFilePath}...`);
-      fs.copyFileSync(localAppDataFile, dataFilePath);
+      console.log(`Cloning initial session data from legacy path to ${dataFilePath}...`);
+      fs.copyFileSync(legacyAppDataFile, dataFilePath);
     } catch (e) {
       console.warn('Initial session clone warning:', e.message);
     }
