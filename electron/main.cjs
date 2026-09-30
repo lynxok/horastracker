@@ -68,16 +68,46 @@ const migrateData = () => {
 
 migrateData();
 
-// Data storage stability: Force userData to a fixed path regardless of productName changes
-const userDataPath = path.join(app.getPath('appData'), 'tracker-de-horas');
+// Resolve active user (OS username fallback safe)
+const rawUserName = process.env.USERNAME || process.env.USER || 'default';
+const activeUser = rawUserName.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+
+// Detect if running from cloud repository or bundled app
+const repoRootDir = path.resolve(__dirname, '..');
+const cloudUserDir = path.join(repoRootDir, 'usuarios', activeUser);
+const isRepoEnvironment = fs.existsSync(path.join(repoRootDir, 'package.json'));
+
+// If running in repo (e.g. OneDrive shared folder), isolate in usuarios/<user>/
+// Otherwise fallback to appData/tracker-de-horas
+const baseStoragePath = isRepoEnvironment 
+  ? cloudUserDir 
+  : path.join(app.getPath('appData'), 'tracker-de-horas');
+
+const userDataPath = baseStoragePath;
 app.setPath('userData', userDataPath);
 
 const dataFilePath = path.join(userDataPath, 'session_data.json');
 const backupsPath = path.join(userDataPath, 'backups');
+const userCertsPath = path.join(userDataPath, 'certs');
+const userTicketsPath = path.join(userDataPath, 'afip_tickets');
 
 // Ensure directories exist
-if (!fs.existsSync(userDataPath)) fs.mkdirSync(userDataPath, { recursive: true });
-if (!fs.existsSync(backupsPath)) fs.mkdirSync(backupsPath, { recursive: true });
+[userDataPath, backupsPath, userCertsPath, userTicketsPath].forEach(dir => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
+
+// Auto-migrate local appData session_data.json to cloud user folder if empty
+if (isRepoEnvironment && !fs.existsSync(dataFilePath)) {
+  const localAppDataFile = path.join(app.getPath('appData'), 'tracker-de-horas', 'session_data.json');
+  if (fs.existsSync(localAppDataFile)) {
+    try {
+      console.log(`Cloning initial session data from local appData to ${dataFilePath}...`);
+      fs.copyFileSync(localAppDataFile, dataFilePath);
+    } catch (e) {
+      console.warn('Initial session clone warning:', e.message);
+    }
+  }
+}
 
 // Function to create a rolling backup
 const createBackup = () => {
@@ -490,16 +520,13 @@ ipcMain.handle('arca-generate-csr', async (event, { cuit, name, alias }) => {
     fs.writeFileSync(keyPath, privateKeyPem);
     fs.writeFileSync(csrPath, csrPem);
 
-    // Auto-copy to certs folder for app use
+    // Auto-copy to user-isolated certs folder for app use
     try {
-      const certsDir = isDev 
-        ? path.join(__dirname, '..', 'certs') 
-        : path.join(process.resourcesPath, 'certs');
-      if (!fs.existsSync(certsDir)) fs.mkdirSync(certsDir, { recursive: true });
-      fs.writeFileSync(path.join(certsDir, 'privada.key'), privateKeyPem);
-      fs.writeFileSync(path.join(certsDir, 'pedido.csr'), csrPem);
+      if (!fs.existsSync(userCertsPath)) fs.mkdirSync(userCertsPath, { recursive: true });
+      fs.writeFileSync(path.join(userCertsPath, 'privada.key'), privateKeyPem);
+      fs.writeFileSync(path.join(userCertsPath, 'pedido.csr'), csrPem);
     } catch (e) {
-      console.warn('Auto-copy to certs folder warning:', e.message);
+      console.warn('Auto-copy to user certs folder warning:', e.message);
     }
 
     return { 
@@ -607,6 +634,7 @@ ipcMain.handle('arca-regenerate-pdf', async (event, { billedMonth, settings }) =
       clienteName: billedMonth.clientName || client.razonSocial || client.name, 
       clienteCuit: client.cuit, 
       clienteDom: client.domicilio,
+      clienteCondicionIva: client.condicionIva || 'Consumidor Final',
       pv, nro: billedMonth.invoiceNumber, fecha: new Date(billedMonth.date).toLocaleDateString('es-AR'),
       concepto: `Servicios de Consultoría - Período ${new Date(billedMonth.serviceStart || billedMonth.date).toLocaleDateString('es-AR')} al ${new Date(billedMonth.serviceEnd || billedMonth.date).toLocaleDateString('es-AR')}`,
       monto: billedMonth.totalAmount, cae: billedMonth.cae, caeVe: billedMonth.caeVto, qrBase64
@@ -792,19 +820,28 @@ ipcMain.handle('open-backups-folder', () => {
 // --- ARCA (AFIP) INTEGRATION ---
 
 function getAfipInstance(arcaInfo) {
-  const certDir = isDev 
-    ? path.join(__dirname, '..', 'certs') 
-    : path.join(process.resourcesPath, 'certs');
-  
   let certPath = arcaInfo.certPath;
   let keyPath = arcaInfo.keyPath;
 
-  // Auto-detect if not provided or doesn't exist
+  // 1. Check user-isolated certs directory first
+  if (!certPath || !fs.existsSync(certPath) || !keyPath || !fs.existsSync(keyPath)) {
+    if (fs.existsSync(userCertsPath)) {
+      const userFiles = fs.readdirSync(userCertsPath);
+      certPath = certPath && fs.existsSync(certPath) ? certPath : path.join(userCertsPath, userFiles.find(f => f.endsWith('.crt')) || '');
+      keyPath = keyPath && fs.existsSync(keyPath) ? keyPath : path.join(userCertsPath, userFiles.find(f => f.endsWith('.key')) || '');
+    }
+  }
+
+  // 2. Fallback to shared certs directory if not found in user directory
+  const certDir = isDev 
+    ? path.join(__dirname, '..', 'certs') 
+    : path.join(process.resourcesPath, 'certs');
+
   if (!certPath || !fs.existsSync(certPath) || !keyPath || !fs.existsSync(keyPath)) {
     if (fs.existsSync(certDir)) {
       const files = fs.readdirSync(certDir);
-      certPath = certPath || path.join(certDir, files.find(f => f.endsWith('.crt')) || '');
-      keyPath = keyPath || path.join(certDir, files.find(f => f.endsWith('.key')) || '');
+      certPath = certPath && fs.existsSync(certPath) ? certPath : path.join(certDir, files.find(f => f.endsWith('.crt')) || '');
+      keyPath = keyPath && fs.existsSync(keyPath) ? keyPath : path.join(certDir, files.find(f => f.endsWith('.key')) || '');
     }
   }
 
@@ -812,10 +849,9 @@ function getAfipInstance(arcaInfo) {
     throw new Error('No se encontraron los archivos de certificado (.crt) o llave (.key) requeridos.');
   }
 
-  // Ensure tickets directory exists in APPDATA
-  const ticketsDir = path.join(userDataPath, 'afip_tickets');
-  if (!fs.existsSync(ticketsDir)) {
-    fs.mkdirSync(ticketsDir, { recursive: true });
+  // Ensure user tickets directory exists
+  if (!fs.existsSync(userTicketsPath)) {
+    fs.mkdirSync(userTicketsPath, { recursive: true });
   }
 
   const cleanCuit = arcaInfo.cuit.replace(/[^0-9]/g, '');
@@ -825,7 +861,7 @@ function getAfipInstance(arcaInfo) {
     cert: fs.readFileSync(certPath, 'utf8'),
     key: fs.readFileSync(keyPath, 'utf8'),
     production: arcaInfo.productionMode === true,
-    ticketPath: ticketsDir
+    ticketPath: userTicketsPath
   });
 }
 
@@ -891,7 +927,7 @@ async function generatePDF(templateData, savePath) {
                 <div style="margin-top: 10px">
                   Fecha de Emisión: <b>${templateData.fecha}</b><br>
                   CUIT: <b>${templateData.emisorCuit}</b><br>
-                  Ingresos Brutos: <b>${templateData.emisorCuit}</b><br>
+                  II.BB: <b>${templateData.emisorCuit}</b><br>
                   Inicio de Actividades: <b>${templateData.inicioActividades}</b>
                 </div>
               </div>
@@ -904,8 +940,8 @@ async function generatePDF(templateData, savePath) {
                 Nombre/Razón Social: <b>${templateData.clienteName}</b>
               </div>
               <div>
-                Condición IVA: <b>Consumidor Final</b><br>
-                Domicilio: <b>${templateData.clienteDom}</b>
+                Condición IVA: <b>${templateData.clienteCondicionIva || 'Consumidor Final'}</b><br>
+                Domicilio: <b>${templateData.clienteDom || '-'}</b>
               </div>
             </div>
 
@@ -978,8 +1014,30 @@ async function generatePDF(templateData, savePath) {
 
 ipcMain.handle('arca-test-connection', async (event, settings) => {
   try {
-    const certPath = settings.arcaInfo.certPath;
-    const keyPath = settings.arcaInfo.keyPath;
+    let certPath = settings.arcaInfo.certPath;
+    let keyPath = settings.arcaInfo.keyPath;
+
+    // Check user-isolated certs directory first if paths not provided or missing
+    if (!certPath || !fs.existsSync(certPath) || !keyPath || !fs.existsSync(keyPath)) {
+      if (fs.existsSync(userCertsPath)) {
+        const userFiles = fs.readdirSync(userCertsPath);
+        certPath = certPath && fs.existsSync(certPath) ? certPath : path.join(userCertsPath, userFiles.find(f => f.endsWith('.crt')) || '');
+        keyPath = keyPath && fs.existsSync(keyPath) ? keyPath : path.join(userCertsPath, userFiles.find(f => f.endsWith('.key')) || '');
+      }
+    }
+
+    // Fallback to shared certs directory
+    const certDir = isDev 
+      ? path.join(__dirname, '..', 'certs') 
+      : path.join(process.resourcesPath, 'certs');
+
+    if (!certPath || !fs.existsSync(certPath) || !keyPath || !fs.existsSync(keyPath)) {
+      if (fs.existsSync(certDir)) {
+        const files = fs.readdirSync(certDir);
+        certPath = certPath && fs.existsSync(certPath) ? certPath : path.join(certDir, files.find(f => f.endsWith('.crt')) || '');
+        keyPath = keyPath && fs.existsSync(keyPath) ? keyPath : path.join(certDir, files.find(f => f.endsWith('.key')) || '');
+      }
+    }
 
     // Verify key match before connecting
     if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
@@ -1184,7 +1242,8 @@ ipcMain.handle('arca-generate-invoice', async (event, { settings, client, amount
         emisorDom: settings.arcaInfo.domicilioComercial || 'Av. Siempre Viva 123, CABA',
         emisorCuit: settings.arcaInfo.cuit,
         inicioActividades: settings.arcaInfo.monotributoStartDate ? new Date(settings.arcaInfo.monotributoStartDate).toLocaleDateString('es-AR') : '01/01/2020',
-        clienteName: client.razonSocial, clienteCuit: client.cuit, clienteDom: client.domicilio,
+        clienteName: client.razonSocial || client.name, clienteCuit: client.cuit, clienteDom: client.domicilio,
+        clienteCondicionIva: client.condicionIva || 'Consumidor Final',
         pv, nro: nro, fecha: new Date().toLocaleDateString('es-AR'),
         concepto: `Servicios de Consultoría - Período ${new Date(start).toLocaleDateString('es-AR')} al ${new Date(end).toLocaleDateString('es-AR')}`,
         monto: amount, cae: res.cae, caeVe: res.caeFchVto, qrBase64
@@ -1300,8 +1359,14 @@ ipcMain.handle('arca-generate-credit-note', async (event, { settings, invoice, c
 
       await generatePDF({
         tipoLetra: 'C', tipoCod: type.toString(), tipoNombre: 'NOTA DE CRÉDITO C',
-        emisorName: 'Ignacio Valente', emisorCuit: settings.arcaInfo.cuit,
-        clienteName: client.razonSocial, clienteCuit: client.cuit, clienteDom: client.domicilio,
+        emisorName: settings.arcaInfo.nombreEmisor || 'Ignacio Valente', 
+        emisorDom: settings.arcaInfo.domicilioComercial || 'Av. Siempre Viva 123, CABA',
+        emisorCuit: settings.arcaInfo.cuit,
+        inicioActividades: settings.arcaInfo.monotributoStartDate ? new Date(settings.arcaInfo.monotributoStartDate).toLocaleDateString('es-AR') : '01/01/2020',
+        clienteName: client.razonSocial || client.name, 
+        clienteCuit: client.cuit, 
+        clienteDom: client.domicilio,
+        clienteCondicionIva: client.condicionIva || 'Consumidor Final',
         pv, nro: nro, fecha: new Date().toLocaleDateString('es-AR'),
         concepto: `Anulación de Factura C Nro ${invoice.invoiceNumber}`,
         monto: invoice.totalAmount, cae: res.cae, caeVe: res.caeFchVto, qrBase64

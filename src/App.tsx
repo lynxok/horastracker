@@ -1133,12 +1133,21 @@ const App: React.FC = () => {
             description: `Servicios de Consultoría - Período ${new Date(bm.serviceStart || bm.date).toLocaleDateString('es-AR')} al ${new Date(bm.serviceEnd || bm.date).toLocaleDateString('es-AR')}`,
             clientCuit: client.cuit,
             clientName: bm.clientName || client.name,
+            clientDomicilio: client.domicilio,
+            clientCondicionIva: client.condicionIva,
             cae: bm.cae,
             caeVto: bm.caeVto,
             qrBase64
           };
 
-          const customPdfBase64 = (await generateInvoicePDF(invoiceData, settings.invoiceDesign, 'base64')) as string;
+          const effectiveDesignSettings = {
+            ...settings.invoiceDesign,
+            nombreEmisor: settings.arcaInfo?.nombreEmisor || settings.invoiceDesign?.nombreEmisor || "IGNACIO VALENTE",
+            cuit: settings.arcaInfo?.cuit || settings.invoiceDesign?.cuit || "20326691314",
+            ingresosBrutos: settings.invoiceDesign?.ingresosBrutos || settings.arcaInfo?.cuit || "20326691314"
+          };
+
+          const customPdfBase64 = (await generateInvoicePDF(invoiceData, effectiveDesignSettings, 'base64')) as string;
           const writeRes = await window.electronAPI.writePdfFile({ filePath: res.filePath || '', base64: customPdfBase64 });
           if (!writeRes.success) {
             throw new Error(writeRes.error || 'Fallo al sobreescribir con la plantilla personalizada');
@@ -1409,12 +1418,21 @@ const App: React.FC = () => {
             description: `Servicios de Consultoría - Período ${new Date(earliest).toLocaleDateString('es-AR')} al ${new Date(latest).toLocaleDateString('es-AR')}`,
             clientCuit: client.cuit,
             clientName: client.name,
+            clientDomicilio: client.domicilio,
+            clientCondicionIva: client.condicionIva,
             cae: res.cae,
             caeVto: res.caeVto || '',
             qrBase64
           };
 
-          const customPdfBase64 = (await generateInvoicePDF(invoiceData, settings.invoiceDesign, 'base64')) as string;
+          const effectiveDesignSettings = {
+            ...settings.invoiceDesign,
+            nombreEmisor: settings.arcaInfo?.nombreEmisor || settings.invoiceDesign?.nombreEmisor || "IGNACIO VALENTE",
+            cuit: settings.arcaInfo?.cuit || settings.invoiceDesign?.cuit || "20326691314",
+            ingresosBrutos: settings.invoiceDesign?.ingresosBrutos || settings.arcaInfo?.cuit || "20326691314"
+          };
+
+          const customPdfBase64 = (await generateInvoicePDF(invoiceData, effectiveDesignSettings, 'base64')) as string;
           const writeRes = await window.electronAPI.writePdfFile({ filePath: res.filePath || '', base64: customPdfBase64 });
           if (!writeRes.success) {
             throw new Error(writeRes.error || 'Fallo al sobreescribir con la plantilla personalizada');
@@ -1512,12 +1530,21 @@ const App: React.FC = () => {
             description: `Anulación de Factura C Nro ${invoice.invoiceNumber}`,
             clientCuit: client.cuit,
             clientName: client.name,
+            clientDomicilio: client.domicilio,
+            clientCondicionIva: client.condicionIva,
             cae: res.cae,
             caeVto: res.caeVto || '',
             qrBase64
           };
 
-          const customPdfBase64 = (await generateInvoicePDF(invoiceData, settings.invoiceDesign, 'base64')) as string;
+          const effectiveDesignSettings = {
+            ...settings.invoiceDesign,
+            nombreEmisor: settings.arcaInfo?.nombreEmisor || settings.invoiceDesign?.nombreEmisor || "IGNACIO VALENTE",
+            cuit: settings.arcaInfo?.cuit || settings.invoiceDesign?.cuit || "20326691314",
+            ingresosBrutos: settings.invoiceDesign?.ingresosBrutos || settings.arcaInfo?.cuit || "20326691314"
+          };
+
+          const customPdfBase64 = (await generateInvoicePDF(invoiceData, effectiveDesignSettings, 'base64')) as string;
           const writeRes = await window.electronAPI.writePdfFile({ filePath: res.filePath || '', base64: customPdfBase64 });
           if (!writeRes.success) {
             throw new Error(writeRes.error || 'Fallo al sobreescribir nota de crédito con la plantilla personalizada');

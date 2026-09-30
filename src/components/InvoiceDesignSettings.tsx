@@ -4,15 +4,17 @@ import { generateInvoicePDF } from "../utils/pdfGenerator";
 
 const mockInvoice = {
   id: "2026-9999",
-  ptoVta: 2,
-  voucherNumber: 3,
-  date: "2026-05-30",
-  amount: 206000,
-  description: "Servicios de Barbería del día 2026-05-30",
-  clientCuit: "20369106539",
-  clientName: "CONSUMIDOR FINAL",
+  ptoVta: 3,
+  voucherNumber: 7,
+  date: "2026-09-01",
+  amount: 290000,
+  description: "Servicios de Consultoría",
+  clientCuit: "30588898179",
+  clientName: "INSTITUTO DE TRAUMATOLOGIA Y ENFERMEDADES OSEAS S R L",
+  clientDomicilio: "San Martin 1247 - Parana, Entre Ríos",
+  clientCondicionIva: "IVA Responsable Inscripto",
   cae: "86238304087136",
-  caeVto: "2026-06-14"
+  caeVto: "2026-09-15"
 };
 
 interface InvoiceDesignSettingsProps {
@@ -43,12 +45,14 @@ export default function InvoiceDesignSettings({ settings: parentSettings, update
     pdfInvoiceTypeX: 95,
     pdfInvoiceTypeY: 10,
     pdfTableStartY: 98,
+    nombreEmisor: parentSettings?.arcaInfo?.nombreEmisor || "IGNACIO VALENTE",
+    cuit: parentSettings?.arcaInfo?.cuit || "20326691314",
     domicilioComercial: parentSettings?.arcaInfo?.domicilioComercial || "",
-    nombreFantasia: parentSettings?.arcaInfo?.nombreEmisor || "",
+    nombreFantasia: parentSettings?.arcaInfo?.nombreEmisor || "IGNACIO VALENTE",
     inicioActividad: parentSettings?.arcaInfo?.monotributoStartDate 
       ? new Date(parentSettings.arcaInfo.monotributoStartDate).toLocaleDateString('es-AR') 
       : "01/05/2026",
-    ingresosBrutos: parentSettings?.arcaInfo?.cuit || "",
+    ingresosBrutos: parentSettings?.arcaInfo?.cuit || "20326691314",
     pdfLeftColAlign: "centrado",
     pdfLeftColX: 15,
     pdfRightColX: 110,

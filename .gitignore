@@ -28,6 +28,9 @@ GITHUB_TOKEN.txt
 build-output
 release
 certs
+usuarios/
+*.key
+*.csr
 *.exe
 *.zip
 .gemini/

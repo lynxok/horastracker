@@ -82,7 +82,7 @@ export const generateInvoicePDF = async (invoiceData: any, configData: any, outp
   const pdfRightColX = configData.pdfRightColX ? Number(configData.pdfRightColX) : 110;
 
   const receptorStartY = 10 + headerHeight + 5;
-  const receptorHeight = 22;
+  const receptorHeight = 25;
   const receptorEndY = receptorStartY + receptorHeight;
   const tableStartY = configData.pdfTableStartY ? Number(configData.pdfTableStartY) : (receptorEndY + 5);
 
@@ -227,7 +227,7 @@ export const generateInvoicePDF = async (invoiceData: any, configData: any, outp
   drawRightLine("Fecha de Emisión: ", fechaEmi, rightColumnY + 18);
   drawRightLine("Fecha de Vencimiento: ", fechaEmi, rightColumnY + 23);
   drawRightLine("CUIT: ", cuit, rightColumnY + 28);
-  drawRightLine("Ing. Brutos C.M: ", ingresosBrutos, rightColumnY + 33);
+  drawRightLine("II.BB: ", ingresosBrutos, rightColumnY + 33);
   drawRightLine("Inicio de Actividad: ", inicioActividad, rightColumnY + 38);
   drawRightLine("Razón social: ", razonSocial, rightColumnY + 43);
 
@@ -250,10 +250,17 @@ export const generateInvoicePDF = async (invoiceData: any, configData: any, outp
   
   doc.setTextColor(0, 0, 0);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text(`CUIT/DNI: ${invoiceData.clientCuit || invoiceData.clienteCuit || '0'}`, 15, receptorStartY + 12);
-  doc.text(`Nombre/Razón Social: ${invoiceData.clientName || invoiceData.clienteName || 'CONSUMIDOR FINAL'}`, 15, receptorStartY + 17);
-  doc.text(`Condición IVA: Consumidor Final`, 110, receptorStartY + 12);
+  doc.setFontSize(8.5);
+  
+  const clientCuitVal = invoiceData.clientCuit || invoiceData.clienteCuit || '-';
+  const clientNameVal = invoiceData.clientName || invoiceData.clienteName || 'CONSUMIDOR FINAL';
+  const clientCondIvaVal = invoiceData.clientCondicionIva || invoiceData.condicionIva || 'Consumidor Final';
+  const clientDomicilioVal = invoiceData.clientDomicilio || invoiceData.domicilio || '-';
+
+  doc.text(`CUIT/DNI: ${clientCuitVal}`, 15, receptorStartY + 11.5);
+  doc.text(`Condición IVA: ${clientCondIvaVal}`, 110, receptorStartY + 11.5);
+  doc.text(`Nombre/Razón Social: ${clientNameVal}`, 15, receptorStartY + 16.5);
+  doc.text(`Domicilio: ${clientDomicilioVal}`, 15, receptorStartY + 21.5);
 
   // --- Items ---
   autoTable(doc, {
