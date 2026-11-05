@@ -34,3 +34,4 @@ usuarios/
 *.exe
 *.zip
 .gemini/
+graphify-out/

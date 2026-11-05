@@ -19,7 +19,7 @@ import InvoiceDesignSettings from './components/InvoiceDesignSettings';
 import QRCode from 'qrcode';
 
 
-const APP_VERSION = '2.4.4';
+const APP_VERSION = '2.5.0';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -267,6 +267,7 @@ import { useThematicSounds } from './hooks/useThematicSounds';
 import { InvoicingModal } from './components/modals/InvoicingModal';
 import { ClientModal } from './components/modals/ClientModal';
 import { ManualEntryModal } from './components/modals/ManualEntryModal';
+import { DirectInvoiceModal, type DirectInvoiceData } from './components/modals/DirectInvoiceModal';
 
 
 // --- CONFIGURACIÓN DE TIPOS ---
@@ -330,6 +331,7 @@ const App: React.FC = () => {
 
 
   const [showInvoicingModal, setShowInvoicingModal] = useState(false);
+  const [showDirectInvoiceModal, setShowDirectInvoiceModal] = useState(false);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
 
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -1480,6 +1482,181 @@ const App: React.FC = () => {
     setIsInvoicing(false);
   };
 
+  const handleGenerateDirectInvoice = async (data: DirectInvoiceData) => {
+    if (!window.electronAPI) return;
+    const client = settings.clients.find(c => c.id === data.clientId);
+    if (!client) {
+      alert("Error: Cliente no encontrado.");
+      return;
+    }
+
+    if (!confirm(`¿Emitir factura oficial para ${client.name} por $${formatCurrency(data.totalAmount)}? (${data.hours} hs a $${formatCurrency(data.rate)}/h)`)) return;
+
+    setIsInvoicing(true);
+    try {
+      const res = await window.electronAPI?.generateArcaInvoice({
+        settings, 
+        client: {
+          razonSocial: client.name,
+          cuit: client.cuit,
+          domicilio: client.domicilio,
+          condicionIva: client.condicionIva
+        },
+        amount: Number(data.totalAmount.toFixed(2)),
+        start: data.serviceStart,
+        end: data.serviceEnd
+      });
+
+      if (res && res.success) {
+        const invoiceId = crypto.randomUUID();
+
+        // Optionally update client hourlyRate if different and > 0
+        if (data.rate > 0 && data.rate !== client.hourlyRate) {
+          const newClients = settings.clients.map(c => c.id === client.id ? { ...c, hourlyRate: data.rate } : c);
+          updateSetting('clients', newClients);
+        }
+
+        let newSessionId: string | null = null;
+        if (data.createSessionRecord) {
+          newSessionId = crypto.randomUUID();
+          const startDateTime = new Date(`${data.date}T09:00:00`);
+          const endDateTime = new Date(startDateTime.getTime() + data.hours * 3600 * 1000);
+
+          const directSession: WorkSession = {
+            id: newSessionId,
+            startTime: startDateTime.toISOString(),
+            endTime: endDateTime.toISOString(),
+            rate: data.rate,
+            clientId: client.id,
+            clientName: client.name,
+            invoiced: true,
+            invoiceId: invoiceId,
+            note: data.description || `Factura Directa (${data.hours} hs)`
+          };
+          setSessions(prev => [directSession, ...prev]);
+        }
+
+        const newInvoice: BilledMonth = {
+          id: invoiceId,
+          date: new Date().toISOString(),
+          month: data.serviceStart === data.serviceEnd 
+            ? format(parseISO(data.date), 'dd/MM/yyyy')
+            : `${format(parseISO(data.serviceStart), 'dd/MM')} al ${format(parseISO(data.serviceEnd), 'dd/MM')}`,
+          totalHours: data.hours,
+          rate: data.rate,
+          totalAmount: data.totalAmount,
+          status: 'ACTIVE',
+          invoiceNumber: res.numero,
+          cae: res.cae,
+          filePath: res.filePath,
+          monthlyGoal: settings.monthlyGoal,
+          sessionsIds: newSessionId ? [newSessionId] : [],
+          clientId: client.id,
+          clientName: client.name,
+          serviceStart: data.serviceStart,
+          serviceEnd: data.serviceEnd,
+          periodMonth: format(parseISO(data.date), 'yyyy-MM')
+        };
+
+        // If template is custom, generate and overwrite with the custom designer template PDF
+        if (settings.activeTemplate === 'custom') {
+          try {
+            const pv = (settings.arcaInfo.puntoVenta || "2").toString();
+            
+            // Reconstruct QR code
+            const qrData = {
+              ver: 1,
+              fecha: new Date().toISOString().substring(0, 10),
+              cuit: parseInt(settings.arcaInfo.cuit.replace(/-/g, '')),
+              ptoVta: parseInt(pv),
+              tipoCmp: 11, // Factura C
+              nroCmp: res.numero,
+              importe: parseFloat(data.totalAmount.toFixed(2)),
+              moneda: "PES",
+              ctz: 1,
+              tipoDocRec: client.cuit.replace(/-/g, '').length > 8 ? 80 : 96,
+              nroDocRec: parseInt(client.cuit.replace(/-/g, '')),
+              tipoCodAut: "E",
+              codAut: parseInt(res.cae || "0")
+            };
+            const qrUrl = 'https://www.afip.gob.ar/fe/qr/?p=' + btoa(JSON.stringify(qrData));
+            const qrBase64 = await QRCode.toDataURL(qrUrl);
+
+            const invoiceData = {
+              ptoVta: pv,
+              voucherNumber: res.numero,
+              date: new Date().toISOString(),
+              amount: data.totalAmount,
+              description: data.description || `Servicios Profesionales - ${data.hours} hs`,
+              clientCuit: client.cuit,
+              clientName: client.name,
+              clientDomicilio: client.domicilio,
+              clientCondicionIva: client.condicionIva,
+              cae: res.cae,
+              caeVto: res.caeVto || '',
+              qrBase64
+            };
+
+            const effectiveDesignSettings = {
+              ...settings.invoiceDesign,
+              nombreEmisor: settings.arcaInfo?.nombreEmisor || settings.invoiceDesign?.nombreEmisor || "IGNACIO VALENTE",
+              cuit: settings.arcaInfo?.cuit || settings.invoiceDesign?.cuit || "20326691314",
+              ingresosBrutos: settings.invoiceDesign?.ingresosBrutos || settings.arcaInfo?.cuit || "20326691314"
+            };
+
+            const customPdfBase64 = (await generateInvoicePDF(invoiceData, effectiveDesignSettings, 'base64')) as string;
+            const writeRes = await window.electronAPI.writePdfFile({ filePath: res.filePath || '', base64: customPdfBase64 });
+            if (!writeRes.success) {
+              throw new Error(writeRes.error || 'Fallo al sobreescribir con la plantilla personalizada');
+            }
+          } catch (err: any) {
+            addLog('error', 'FACTURACIÓN', `Error al aplicar plantilla personalizada: ${err.message}`);
+          }
+        }
+
+        setBilledMonths(prev => [newInvoice, ...prev]);
+
+        // Automated SMTP Email delivery
+        if (settings.emailSettings?.enabled && client.email) {
+          const mailSubject = `Factura N° ${res.numero} - ${settings.arcaInfo.nombreEmisor || 'Servicios'}`;
+          const mailBody = `Estimado/a ${client.name},\n\nLe adjuntamos la Factura C Nro ${res.numero} correspondiente a los servicios prestados.\n\nMonto Total: $${formatCurrency(data.totalAmount)}\n\nSaludos atentos,\n${settings.arcaInfo.nombreEmisor || ''}`;
+          
+          window.electronAPI?.sendInvoiceEmail({
+            filePath: res.filePath,
+            emailSettings: settings.emailSettings,
+            clientEmail: client.email,
+            subject: mailSubject,
+            body: mailBody,
+            attachmentName: `Factura_${res.numero}.pdf`
+          }).then(mailRes => {
+            if (mailRes.success) {
+              addLog('info', 'CORREO', `Factura #${res.numero} enviada automáticamente a ${client.email}`);
+            } else {
+              addLog('error', 'CORREO', `Fallo al enviar correo automático a ${client.email}: ${mailRes.error}`);
+            }
+          }).catch(err => {
+            addLog('error', 'CORREO', `Error de sistema al enviar correo automático: ${err.message}`);
+          });
+        }
+
+        setShowDirectInvoiceModal(false);
+        
+        if (confirm("FACTURA GENERADA CON ÉXITO. ¿Desea abrir el archivo PDF?")) {
+          window.electronAPI?.openFile(res.filePath!);
+        }
+        addLog('info', 'FACTURACIÓN DIRECTA', `Factura #${res.numero} generada exitosamente para ${client.name} (${data.hours} hs a $${data.rate})`);
+      } else {
+        alert(`ERROR AFIP: ${res?.error || 'No se pudo generar la factura en AFIP'}`);
+        addLog('error', 'AFIP', `Error generando factura directa: ${res?.error}`);
+      }
+    } catch (err: any) {
+      alert(`ERROR: ${err.message}`);
+      addLog('error', 'FACTURACIÓN DIRECTA', `Fallo de ejecución: ${err.message}`);
+    } finally {
+      setIsInvoicing(false);
+    }
+  };
+
   const handleAnnullInvoice = async (invoice: BilledMonth) => {
     if (!window.electronAPI) return;
     if (!confirm(`¿Estás seguro de anular la factura N° ${invoice.invoiceNumber}? Se generará una Nota de Crédito en AFIP.`)) return;
@@ -2337,8 +2514,17 @@ const App: React.FC = () => {
 
               <div className="premium-card" style={{ background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, #000 100%)', border: '1px solid var(--accent-color)' }}>
                 <h3 className="mono-font" style={{ fontSize: '0.8rem', fontWeight: 800, marginBottom: '16px', color: 'var(--accent-color)' }}>GESTIÓN DE FACTURACIÓN</h3>
-                <p className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: '1.6' }}>Selecciona sesiones pendientes para generar un nuevo comprobante oficial.</p>
-                <button onClick={finalizeMonth} className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>PREPARAR FACTURA NUEVA</button>
+                <p className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: '1.6' }}>Facturá sesiones cronometradas pendientes o emití una factura directa indicando horas y cliente.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <button onClick={finalizeMonth} className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>PREPARAR FACTURA NUEVA</button>
+                  <button 
+                    onClick={() => setShowDirectInvoiceModal(true)} 
+                    className="btn-secondary" 
+                    style={{ width: '100%', justifyContent: 'center', borderColor: 'var(--accent-color)', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <Zap size={14} color="var(--accent-color)" /> FACTURACIÓN DIRECTA
+                  </button>
+                </div>
               </div>
             </aside>
           </div>
@@ -2548,13 +2734,22 @@ const App: React.FC = () => {
                 <h3 className="mono-font" style={{ color: 'var(--accent-color)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                   <Lock size={14} /> HISTORIAL DE COMPROBANTES EMITIDOS
                 </h3>
-                <button 
-                  onClick={() => setShowManualInvoiceModal(true)} 
-                  className="btn-secondary" 
-                  style={{ fontSize: '0.7rem', padding: '6px 12px' }}
-                >
-                  <Plus size={12} /> AÑADIR HISTÓRICO
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    onClick={() => setShowDirectInvoiceModal(true)} 
+                    className="btn-primary" 
+                    style={{ fontSize: '0.7rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Zap size={12} /> FACTURAR DIRECTO
+                  </button>
+                  <button 
+                    onClick={() => setShowManualInvoiceModal(true)} 
+                    className="btn-secondary" 
+                    style={{ fontSize: '0.7rem', padding: '6px 12px' }}
+                  >
+                    <Plus size={12} /> AÑADIR HISTÓRICO
+                  </button>
+                </div>
               </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -3553,6 +3748,17 @@ const App: React.FC = () => {
           onToggleSession={handleToggleSession}
           onGenerate={handleGenerateInvoice}
           onClose={() => setShowInvoicingModal(false)}
+          isInvoicing={isInvoicing}
+        />
+      )}
+
+      {/* MODAL DE FACTURACIÓN DIRECTA */}
+      {showDirectInvoiceModal && (
+        <DirectInvoiceModal
+          clients={settings.clients}
+          defaultClientId={settings.selectedClientId}
+          onGenerate={handleGenerateDirectInvoice}
+          onClose={() => setShowDirectInvoiceModal(false)}
           isInvoicing={isInvoicing}
         />
       )}
