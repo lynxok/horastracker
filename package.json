@@ -1,7 +1,7 @@
 {
   "name": "tracker-de-horas",
   "private": true,
-  "version": "2.5.0",
+  "version": "2.5.1",
   "main": "electron/main.cjs",
   "repository": {
     "type": "git",
@@ -12,6 +12,7 @@
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "build": "tsc -b && vite build",
     "package": "npm run build && electron-builder",
+    "release": "npm run build && electron-builder --publish always",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -15,6 +15,7 @@ interface Client {
 export interface DirectInvoiceData {
   clientId: string;
   date: string;
+  periodMonth?: string;
   serviceStart: string;
   serviceEnd: string;
   hours: number;
@@ -23,6 +24,28 @@ export interface DirectInvoiceData {
   description: string;
   createSessionRecord: boolean;
 }
+
+const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+const getMonthLabel = (yyyyMm: string) => {
+  const parts = yyyyMm.split('-');
+  if (parts.length < 2) return yyyyMm;
+  const mIndex = parseInt(parts[1], 10) - 1;
+  return `${MONTH_NAMES[mIndex] || parts[1]} ${parts[0]}`;
+};
+
+const getMonthRange = (yyyyMm: string) => {
+  const parts = yyyyMm.split('-');
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const start = `${yyyyMm}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const end = `${yyyyMm}-${String(lastDay).padStart(2, '0')}`;
+  return { start, end };
+};
 
 interface DirectInvoiceModalProps {
   clients: Client[];
@@ -39,16 +62,26 @@ export const DirectInvoiceModal: React.FC<DirectInvoiceModalProps> = ({
   onClose,
   isInvoicing
 }) => {
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const today = new Date();
+  const todayStr = format(today, 'yyyy-MM-dd');
+  const currentMonthStr = format(today, 'yyyy-MM');
+
+  const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const prevMonthStr = format(prevMonthDate, 'yyyy-MM');
+
   const [clientId, setClientId] = useState<string>(defaultClientId || (clients[0]?.id || ''));
   const [hours, setHours] = useState<string>('1');
   const [rate, setRate] = useState<string>('0');
   const [totalAmount, setTotalAmount] = useState<string>('0');
-  const [date, setDate] = useState<string>(todayStr);
-  const [useDateRange, setUseDateRange] = useState<boolean>(false);
-  const [serviceStart, setServiceStart] = useState<string>(todayStr);
-  const [serviceEnd, setServiceEnd] = useState<string>(todayStr);
-  const [description, setDescription] = useState<string>('Servicios de desarrollo y consultoría');
+  const [date, setDate] = useState<string>(todayStr); // Fecha de emisión oficial
+  
+  // Período al que se debe la factura
+  const [periodType, setPeriodType] = useState<'month' | 'range' | 'single'>('month');
+  const [periodMonth, setPeriodMonth] = useState<string>(currentMonthStr);
+  const [serviceStart, setServiceStart] = useState<string>(() => getMonthRange(currentMonthStr).start);
+  const [serviceEnd, setServiceEnd] = useState<string>(() => getMonthRange(currentMonthStr).end);
+
+  const [description, setDescription] = useState<string>(() => `Servicios de desarrollo y consultoría - Período ${getMonthLabel(currentMonthStr)}`);
   const [createSessionRecord, setCreateSessionRecord] = useState<boolean>(true);
 
   const selectedClient = clients.find(c => c.id === clientId);
@@ -87,6 +120,20 @@ export const DirectInvoiceModal: React.FC<DirectInvoiceModalProps> = ({
     }
   };
 
+  const handleSelectMonth = (mStr: string) => {
+    setPeriodMonth(mStr);
+    const range = getMonthRange(mStr);
+    setServiceStart(range.start);
+    setServiceEnd(range.end);
+    // Sugerir actualización en la descripción si contiene "Período"
+    setDescription(prev => {
+      if (prev.includes('Período')) {
+        return prev.replace(/Período.*$/, `Período ${getMonthLabel(mStr)}`);
+      }
+      return `${prev} - Período ${getMonthLabel(mStr)}`;
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const numHours = parseFloat(hours);
@@ -106,15 +153,22 @@ export const DirectInvoiceModal: React.FC<DirectInvoiceModalProps> = ({
       return;
     }
 
+    const effectiveStart = periodType === 'single' ? date : serviceStart;
+    const effectiveEnd = periodType === 'single' ? date : serviceEnd;
+    const effectivePeriodMonth = periodType === 'month' 
+      ? periodMonth 
+      : (effectiveStart ? effectiveStart.substring(0, 7) : periodMonth);
+
     onGenerate({
       clientId,
       date,
-      serviceStart: useDateRange ? serviceStart : date,
-      serviceEnd: useDateRange ? serviceEnd : date,
+      periodMonth: effectivePeriodMonth,
+      serviceStart: effectiveStart,
+      serviceEnd: effectiveEnd,
       hours: numHours,
       rate: numRate,
       totalAmount: numTotal,
-      description: description.trim() || `Servicios profesionales (${numHours} hs)`,
+      description: description.trim() || `Servicios profesionales (${numHours} hs) - Período ${getMonthLabel(effectivePeriodMonth)}`,
       createSessionRecord
     });
   };
@@ -129,7 +183,8 @@ export const DirectInvoiceModal: React.FC<DirectInvoiceModalProps> = ({
           maxHeight: '90vh', 
           overflowY: 'auto',
           border: '1px solid var(--accent-color)',
-          background: 'var(--surface-color, #0b0f19)'
+          background: '#0d121f',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.95)'
         }}
       >
         {/* Header */}
@@ -152,7 +207,7 @@ export const DirectInvoiceModal: React.FC<DirectInvoiceModalProps> = ({
         </div>
 
         <p className="mono-font" style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-          Generá una factura oficial electrónica (ARCA/AFIP) directamente indicando cliente, horas y fecha sin necesidad de haber cronometrado turnos previos.
+          Generá una factura oficial electrónica (ARCA/AFIP) directamente indicando cliente, horas, monto y el período correspondiente.
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
@@ -284,49 +339,135 @@ export const DirectInvoiceModal: React.FC<DirectInvoiceModalProps> = ({
             </div>
           </div>
 
-          {/* Fechas */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <label className="mono-font" style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Calendar size={12} /> FECHA DE EMISIÓN / SERVICIO
+          {/* PERÍODO AL QUE CORRESPONDE LA FACTURA */}
+          <div style={{ 
+            border: '1px solid var(--accent-color)', 
+            background: 'rgba(14, 165, 233, 0.04)', 
+            padding: '14px', 
+            borderRadius: '6px' 
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <label className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--accent-color)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Calendar size={13} /> PERÍODO FACTURADO (A QUÉ PERÍODO SE DEBE)
               </label>
-              <button 
-                type="button" 
-                onClick={() => setUseDateRange(!useDateRange)}
-                style={{ 
-                  background: 'transparent', 
-                  border: 'none', 
-                  color: 'var(--accent-color)', 
-                  fontSize: '0.65rem', 
-                  cursor: 'pointer',
-                  textDecoration: 'underline'
-                }}
-              >
-                {useDateRange ? 'Usar fecha única' : 'Especificar rango de servicio (desde / hasta)'}
-              </button>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPeriodType('month');
+                    handleSelectMonth(periodMonth);
+                  }}
+                  className="mono-font"
+                  style={{
+                    background: periodType === 'month' ? 'var(--accent-color)' : 'transparent',
+                    color: periodType === 'month' ? '#000' : 'var(--text-secondary)',
+                    border: '1px solid var(--accent-color)',
+                    padding: '3px 8px',
+                    fontSize: '0.65rem',
+                    cursor: 'pointer',
+                    borderRadius: '3px'
+                  }}
+                >
+                  Mes Completo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPeriodType('range')}
+                  className="mono-font"
+                  style={{
+                    background: periodType === 'range' ? 'var(--accent-color)' : 'transparent',
+                    color: periodType === 'range' ? '#000' : 'var(--text-secondary)',
+                    border: '1px solid var(--accent-color)',
+                    padding: '3px 8px',
+                    fontSize: '0.65rem',
+                    cursor: 'pointer',
+                    borderRadius: '3px'
+                  }}
+                >
+                  Rango Fechas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPeriodType('single')}
+                  className="mono-font"
+                  style={{
+                    background: periodType === 'single' ? 'var(--accent-color)' : 'transparent',
+                    color: periodType === 'single' ? '#000' : 'var(--text-secondary)',
+                    border: '1px solid var(--accent-color)',
+                    padding: '3px 8px',
+                    fontSize: '0.65rem',
+                    cursor: 'pointer',
+                    borderRadius: '3px'
+                  }}
+                >
+                  Fecha Única
+                </button>
+              </div>
             </div>
 
-            {!useDateRange ? (
-              <input 
-                type="date" 
-                value={date} 
-                onChange={e => {
-                  setDate(e.target.value);
-                  setServiceStart(e.target.value);
-                  setServiceEnd(e.target.value);
-                }}
-                disabled={isInvoicing}
-                style={{ 
-                  width: '100%', 
-                  background: '#000', 
-                  border: '1px solid var(--surface-border)', 
-                  padding: '10px 12px', 
-                  color: 'white', 
-                  fontFamily: 'monospace',
-                  borderRadius: '4px'
-                }} 
-              />
-            ) : (
+            {/* Sub-UI según periodType */}
+            {periodType === 'month' && (
+              <div>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectMonth(currentMonthStr)}
+                    className="btn-secondary"
+                    style={{
+                      fontSize: '0.65rem',
+                      padding: '4px 10px',
+                      background: periodMonth === currentMonthStr ? 'rgba(14, 165, 233, 0.2)' : 'transparent',
+                      borderColor: periodMonth === currentMonthStr ? 'var(--accent-color)' : 'var(--surface-border)'
+                    }}
+                  >
+                    Mes actual ({getMonthLabel(currentMonthStr)})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectMonth(prevMonthStr)}
+                    className="btn-secondary"
+                    style={{
+                      fontSize: '0.65rem',
+                      padding: '4px 10px',
+                      background: periodMonth === prevMonthStr ? 'rgba(14, 165, 233, 0.2)' : 'transparent',
+                      borderColor: periodMonth === prevMonthStr ? 'var(--accent-color)' : 'var(--surface-border)'
+                    }}
+                  >
+                    Mes anterior ({getMonthLabel(prevMonthStr)})
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', alignItems: 'center' }}>
+                  <div>
+                    <span className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                      SELECCIONAR MES Y AÑO
+                    </span>
+                    <input 
+                      type="month"
+                      value={periodMonth}
+                      onChange={e => handleSelectMonth(e.target.value)}
+                      disabled={isInvoicing}
+                      style={{ 
+                        width: '100%', 
+                        background: '#000', 
+                        border: '1px solid var(--accent-color)', 
+                        padding: '8px 12px', 
+                        color: 'white', 
+                        fontFamily: 'monospace',
+                        borderRadius: '4px',
+                        fontSize: '0.9rem'
+                      }}
+                    />
+                  </div>
+                  <div className="mono-font" style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.5)', padding: '8px 12px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div>Rango AFIP: <strong style={{ color: '#fff' }}>{serviceStart}</strong> al <strong style={{ color: '#fff' }}>{serviceEnd}</strong></div>
+                    <div style={{ color: 'var(--accent-color)', marginTop: '2px' }}>Período fiscal: {getMonthLabel(periodMonth)}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {periodType === 'range' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <span className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>SERVICIO DESDE</span>
@@ -339,7 +480,7 @@ export const DirectInvoiceModal: React.FC<DirectInvoiceModalProps> = ({
                       width: '100%', 
                       background: '#000', 
                       border: '1px solid var(--surface-border)', 
-                      padding: '10px 12px', 
+                      padding: '8px 12px', 
                       color: 'white', 
                       fontFamily: 'monospace',
                       borderRadius: '4px'
@@ -357,7 +498,7 @@ export const DirectInvoiceModal: React.FC<DirectInvoiceModalProps> = ({
                       width: '100%', 
                       background: '#000', 
                       border: '1px solid var(--surface-border)', 
-                      padding: '10px 12px', 
+                      padding: '8px 12px', 
                       color: 'white', 
                       fontFamily: 'monospace',
                       borderRadius: '4px'
@@ -366,13 +507,82 @@ export const DirectInvoiceModal: React.FC<DirectInvoiceModalProps> = ({
                 </div>
               </div>
             )}
+
+            {periodType === 'single' && (
+              <div>
+                <span className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>FECHA DEL SERVICIO</span>
+                <input 
+                  type="date" 
+                  value={date} 
+                  onChange={e => {
+                    setDate(e.target.value);
+                    setServiceStart(e.target.value);
+                    setServiceEnd(e.target.value);
+                  }}
+                  disabled={isInvoicing}
+                  style={{ 
+                    width: '100%', 
+                    background: '#000', 
+                    border: '1px solid var(--surface-border)', 
+                    padding: '8px 12px', 
+                    color: 'white', 
+                    fontFamily: 'monospace',
+                    borderRadius: '4px'
+                  }} 
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Fecha de Emisión Fiscal (ARCA) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '6px' }}>
+            <label className="mono-font" style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Clock size={12} /> FECHA DE EMISIÓN DE LA FACTURA (FECHA FISCAL AFIP)
+            </label>
+            <input 
+              type="date" 
+              value={date} 
+              onChange={e => setDate(e.target.value)}
+              disabled={isInvoicing}
+              style={{ 
+                width: '100%', 
+                background: '#000', 
+                border: '1px solid var(--surface-border)', 
+                padding: '8px 12px', 
+                color: 'white', 
+                fontFamily: 'monospace',
+                borderRadius: '4px'
+              }} 
+            />
           </div>
 
           {/* Concepto / Descripción */}
           <div>
-            <label className="mono-font" style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-              <FileText size={12} /> CONCEPTO / DETALLE DE FACTURA
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label className="mono-font" style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FileText size={12} /> CONCEPTO / DETALLE DE FACTURA
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  const pLabel = periodType === 'month' 
+                    ? getMonthLabel(periodMonth) 
+                    : (serviceStart === serviceEnd ? serviceStart : `${serviceStart} al ${serviceEnd}`);
+                  setDescription(`Servicios profesionales (${hours} hs) - Período ${pLabel}`);
+                }}
+                className="mono-font"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--accent-color)',
+                  fontSize: '0.65rem',
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                Insertar período en concepto
+              </button>
+            </div>
             <input 
               type="text" 
               value={description} 
@@ -411,7 +621,7 @@ export const DirectInvoiceModal: React.FC<DirectInvoiceModalProps> = ({
               style={{ cursor: 'pointer', width: '16px', height: '16px' }}
             />
             <label htmlFor="createSessionCheck" className="mono-font" style={{ fontSize: '0.72rem', color: 'var(--text-primary)', cursor: 'pointer', margin: 0 }}>
-              Registrar sesión en el historial de turnos (computa para gráficos y horas mensuales)
+              Registrar sesión en el historial de turnos (computa para gráficos y horas mensuales en el período seleccionado)
             </label>
           </div>
 

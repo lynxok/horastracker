@@ -19,7 +19,7 @@ import InvoiceDesignSettings from './components/InvoiceDesignSettings';
 import QRCode from 'qrcode';
 
 
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.5.1';
 const LOCALE = 'es-AR';
 
 const formatCurrency = (val: number) => 
@@ -333,6 +333,11 @@ const App: React.FC = () => {
   const [showInvoicingModal, setShowInvoicingModal] = useState(false);
   const [showDirectInvoiceModal, setShowDirectInvoiceModal] = useState(false);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
+
+  // Estado para modificar hora de inicio en ejecución
+  const [isEditingActiveStart, setIsEditingActiveStart] = useState(false);
+  const [editStartDateVal, setEditStartDateVal] = useState('');
+  const [editStartTimeVal, setEditStartTimeVal] = useState('');
 
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
@@ -1021,6 +1026,51 @@ const App: React.FC = () => {
 
   };
 
+  const handleOpenEditActiveStart = () => {
+    const activeS = sessions.find(s => s.id === activeSessionId);
+    if (!activeS) return;
+    const sDate = parseISO(activeS.startTime);
+    setEditStartDateVal(format(sDate, 'yyyy-MM-dd'));
+    setEditStartTimeVal(format(sDate, 'HH:mm:ss'));
+    setIsEditingActiveStart(true);
+  };
+
+  const handleSaveActiveStartTime = () => {
+    if (!activeSessionId) return;
+    if (!editStartDateVal || !editStartTimeVal) {
+      alert('Ingresa una fecha y hora válidas');
+      return;
+    }
+    const timeFormatted = editStartTimeVal.length === 5 ? `${editStartTimeVal}:00` : editStartTimeVal;
+    const newDate = new Date(`${editStartDateVal}T${timeFormatted}`);
+    if (isNaN(newDate.getTime())) {
+      alert('Formato de fecha u hora inválido');
+      return;
+    }
+    if (newDate.getTime() > Date.now()) {
+      alert('La hora de inicio no puede ser posterior al momento actual');
+      return;
+    }
+    const newIso = newDate.toISOString();
+    setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, startTime: newIso } : s));
+    addLog('info', 'RELOJ', `Hora de inicio modificada a ${format(newDate, 'dd/MM/yyyy HH:mm:ss')}`);
+    setIsEditingActiveStart(false);
+  };
+
+  const handleAdjustActiveStartMinutes = (minutes: number) => {
+    const activeS = sessions.find(s => s.id === activeSessionId);
+    if (!activeS) return;
+    const timeFormatted = editStartTimeVal.length === 5 ? `${editStartTimeVal}:00` : editStartTimeVal;
+    const baseDate = new Date(`${editStartDateVal || format(parseISO(activeS.startTime), 'yyyy-MM-dd')}T${(timeFormatted || format(parseISO(activeS.startTime), 'HH:mm:ss')).substring(0, 8)}`);
+    const adjusted = new Date(baseDate.getTime() - minutes * 60 * 1000);
+    if (adjusted.getTime() > Date.now()) {
+      alert('La hora de inicio no puede ser en el futuro');
+      return;
+    }
+    setEditStartDateVal(format(adjusted, 'yyyy-MM-dd'));
+    setEditStartTimeVal(format(adjusted, 'HH:mm:ss'));
+  };
+
   const handleManualEntrySave = () => {
     const manualStart = `${manualEntry.date}T${manualEntry.startTime}`;
     const manualEnd = `${manualEntry.date}T${manualEntry.endTime}`;
@@ -1517,9 +1567,12 @@ const App: React.FC = () => {
         }
 
         let newSessionId: string | null = null;
+        const effectivePeriodMonth = data.periodMonth || (data.serviceStart ? data.serviceStart.substring(0, 7) : format(parseISO(data.date), 'yyyy-MM'));
+
         if (data.createSessionRecord) {
           newSessionId = crypto.randomUUID();
-          const startDateTime = new Date(`${data.date}T09:00:00`);
+          const recordDate = data.serviceEnd || data.serviceStart || data.date;
+          const startDateTime = new Date(`${recordDate}T09:00:00`);
           const endDateTime = new Date(startDateTime.getTime() + data.hours * 3600 * 1000);
 
           const directSession: WorkSession = {
@@ -1531,7 +1584,7 @@ const App: React.FC = () => {
             clientName: client.name,
             invoiced: true,
             invoiceId: invoiceId,
-            note: data.description || `Factura Directa (${data.hours} hs)`
+            note: data.description || `Factura Directa (${data.hours} hs) - Período ${effectivePeriodMonth}`
           };
           setSessions(prev => [directSession, ...prev]);
         }
@@ -1555,7 +1608,7 @@ const App: React.FC = () => {
           clientName: client.name,
           serviceStart: data.serviceStart,
           serviceEnd: data.serviceEnd,
-          periodMonth: format(parseISO(data.date), 'yyyy-MM')
+          periodMonth: effectivePeriodMonth
         };
 
         // If template is custom, generate and overwrite with the custom designer template PDF
@@ -2177,7 +2230,7 @@ const App: React.FC = () => {
           <div style={{ flex: 1, display: 'flex', flexDirection: isTopBar ? 'row' : 'column', alignItems: isTopBar ? 'center' : 'stretch', gap: isTopBar ? '30px' : '0px', minWidth: 0, overflow: 'hidden' }}>
             <div style={{ display: 'flex', flexDirection: 'column', minWidth: isTopBar ? '160px' : '0' }}>
               <div className="mono-font" style={{ fontSize: '0.5rem', color: widgetConfig.accentColor || 'var(--accent-color)', letterSpacing: '1px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {widgetConfig.label}
+                {widgetConfig.label} {activeSessionId && activeS && <span style={{ opacity: 0.8, marginLeft: '6px' }}>(Inicio: {format(parseISO(activeS.startTime), 'HH:mm')})</span>}
               </div>
               
               <div className="mono-font" style={{ fontSize: isTopBar ? '1.1rem' : '1.2rem', fontWeight: 800, letterSpacing: '-0.5px', color: activeSessionId ? (widgetConfig.labelColor || 'white') : 'rgba(128,128,128,0.5)', marginTop: '-2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -2367,10 +2420,38 @@ const App: React.FC = () => {
                       </div>
                     )}
 
-                    {activeSessionId && (
-                       <div className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--accent-color)', marginBottom: '16px', borderLeft: '2px solid var(--accent-color)', paddingLeft: '12px' }}>
-                        &lt; TRABAJANDO PARA: {sessions.find(s => s.id === activeSessionId)?.clientName} &gt;
-                       </div>
+                    {activeSessionId && activeSession && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
+                        <div className="mono-font" style={{ fontSize: '0.7rem', color: 'var(--accent-color)', borderLeft: '2px solid var(--accent-color)', paddingLeft: '12px' }}>
+                          &lt; TRABAJANDO PARA: {activeSession.clientName} &gt;
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingLeft: '12px', flexWrap: 'wrap' }}>
+                          <span className="mono-font" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            <Clock size={13} color="var(--accent-color)" /> HORA DE INICIO: <strong style={{ color: '#fff', letterSpacing: '0.5px' }}>{format(parseISO(activeSession.startTime), 'HH:mm:ss')}</strong>
+                            {format(parseISO(activeSession.startTime), 'yyyy-MM-dd') !== format(now, 'yyyy-MM-dd') && (
+                              <span style={{ fontSize: '0.68rem', color: 'var(--accent-color)' }}>({format(parseISO(activeSession.startTime), 'dd/MM/yyyy')})</span>
+                            )}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleOpenEditActiveStart}
+                            className="btn-secondary"
+                            style={{ 
+                              fontSize: '0.65rem', 
+                              padding: '2px 8px', 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              gap: '4px', 
+                              borderStyle: 'dashed',
+                              borderColor: 'var(--accent-color)',
+                              color: 'var(--accent-color)'
+                            }}
+                            title="Modificar hora de inicio de este turno en ejecución"
+                          >
+                            <Pencil size={11} /> MODIFICAR INICIO
+                          </button>
+                        </div>
+                      </div>
                     )}
 
                     <div style={{ fontSize: '6rem', fontWeight: 800, letterSpacing: '-4px', marginBottom: '8px', lineHeight: 1, color: activeSessionId ? 'var(--text-primary)' : 'var(--text-secondary)' }} className="mono-font">
@@ -2426,6 +2507,73 @@ const App: React.FC = () => {
                   <h2 style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '12px' }}><History size={18} /> HISTORIAL DE TURNOS</h2>
                   <button onClick={() => openManualModal()} className="btn-secondary" style={{ fontSize: '0.7rem' }}>+ CARGA MANUAL</button>
                 </div>
+
+                {/* --- TURNO EN EJECUCIÓN (ACTIVO) --- */}
+                {activeSessionId && activeSession && (
+                  <div style={{ 
+                    marginBottom: '24px', 
+                    padding: '16px 20px', 
+                    border: '1px solid var(--accent-color)', 
+                    background: 'rgba(14, 165, 233, 0.08)', 
+                    borderRadius: '4px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    boxShadow: '0 0 15px var(--accent-glow)'
+                  }}>
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                      <span className="mono-font" style={{ 
+                        background: 'var(--accent-color)', 
+                        color: '#000', 
+                        fontSize: '0.65rem', 
+                        fontWeight: 800, 
+                        padding: '4px 8px', 
+                        borderRadius: '3px',
+                        letterSpacing: '1px'
+                      }}>
+                        EN EJECUCIÓN
+                      </span>
+                      <div>
+                        <div className="mono-font" style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>
+                          {activeSession.clientName}
+                        </div>
+                        <div className="mono-font" style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                          <Clock size={12} color="var(--accent-color)" /> Iniciado: <strong style={{ color: 'var(--accent-color)' }}>{format(parseISO(activeSession.startTime), "HH:mm:ss")}</strong>
+                          <button 
+                            type="button"
+                            onClick={handleOpenEditActiveStart} 
+                            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '0 4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }} 
+                            title="Modificar hora de inicio de este turno"
+                          >
+                            <Pencil size={12} /> <span style={{ fontSize: '0.65rem', textDecoration: 'underline' }}>editar</span>
+                          </button>
+                        </div>
+                        {activeSession.note && <div className="mono-font" style={{ fontSize: '0.65rem', color: 'var(--accent-color)', opacity: 0.8, marginTop: '2px' }}>📝 {activeSession.note}</div>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                      <div className="mono-font" style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-color)' }}>
+                        {formatDuration((Math.floor(((activeSession.pausedAt ? parseISO(activeSession.pausedAt).getTime() : now.getTime()) - parseISO(activeSession.startTime).getTime()) / 1000) - (activeSession.totalPausedSeconds || 0)) / 3600)}
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                          type="button"
+                          onClick={handleOpenEditActiveStart} 
+                          className="btn-secondary" 
+                          style={{ padding: '6px 10px', fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '4px', borderStyle: 'dashed' }}
+                        >
+                          <Pencil size={12} /> EDITAR INICIO
+                        </button>
+                        <button type="button" onClick={handleTogglePause} className="btn-secondary" style={{ padding: '6px 10px', fontSize: '0.7rem' }}>
+                          {activeSession.pausedAt ? <Play size={14} /> : <Pause size={14} />}
+                        </button>
+                        <button type="button" onClick={handlePunchOut} className="btn-primary" style={{ padding: '6px 12px', fontSize: '0.7rem', background: 'var(--danger)', borderColor: 'var(--danger)' }}>
+                          <Square size={14} /> FINALIZAR
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* --- PENDIENTES DE FACTURAR --- */}
                 {sessions.filter(s => s.endTime && !s.invoiced).length > 0 && (
@@ -3688,6 +3836,178 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* MODAL MODIFICAR HORA DE INICIO DEL TURNO EN EJECUCIÓN */}
+        {isEditingActiveStart && activeSession && (
+          <div className="modal-overlay" onClick={() => setIsEditingActiveStart(false)}>
+            <div 
+              className="premium-card fade-in" 
+              onClick={e => e.stopPropagation()} 
+              style={{ width: '100%', maxWidth: '480px', border: '1px solid var(--accent-color)' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Clock size={18} color="var(--accent-color)" />
+                  <h2 className="mono-font" style={{ fontSize: '1rem', color: 'var(--accent-color)', margin: 0 }}>
+                    [ MODIFICAR HORA DE INICIO ]
+                  </h2>
+                </div>
+                <button onClick={() => setIsEditingActiveStart(false)} className="btn-secondary" style={{ border: 'none', padding: '4px' }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <p className="mono-font" style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginBottom: '18px' }}>
+                Ajustá la hora en que comenzaste a trabajar para <strong style={{ color: '#fff' }}>{activeSession.clientName}</strong>. El contador y las ganancias se recalcularán automáticamente.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label className="mono-font" style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+                      FECHA DE INICIO
+                    </label>
+                    <input
+                      type="date"
+                      value={editStartDateVal}
+                      onChange={e => setEditStartDateVal(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: '#000',
+                        border: '1px solid var(--surface-border)',
+                        padding: '8px 12px',
+                        color: 'white',
+                        fontFamily: 'monospace',
+                        borderRadius: '4px',
+                        fontSize: '0.9rem'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="mono-font" style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+                      HORA DE INICIO (HH:mm:ss)
+                    </label>
+                    <input
+                      type="time"
+                      step="1"
+                      value={editStartTimeVal}
+                      onChange={e => setEditStartTimeVal(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: '#000',
+                        border: '1px solid var(--accent-color)',
+                        padding: '8px 12px',
+                        color: 'white',
+                        fontFamily: 'monospace',
+                        borderRadius: '4px',
+                        fontSize: '0.9rem'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Botones de ajuste rápido */}
+                <div>
+                  <span className="mono-font" style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+                    AJUSTE RÁPIDO (RESTAR TIEMPO HACIA ATRÁS):
+                  </span>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleAdjustActiveStartMinutes(10)}
+                      className="btn-secondary"
+                      style={{ fontSize: '0.65rem', padding: '4px 8px' }}
+                    >
+                      -10 min
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAdjustActiveStartMinutes(15)}
+                      className="btn-secondary"
+                      style={{ fontSize: '0.65rem', padding: '4px 8px' }}
+                    >
+                      -15 min
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAdjustActiveStartMinutes(30)}
+                      className="btn-secondary"
+                      style={{ fontSize: '0.65rem', padding: '4px 8px' }}
+                    >
+                      -30 min
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAdjustActiveStartMinutes(60)}
+                      className="btn-secondary"
+                      style={{ fontSize: '0.65rem', padding: '4px 8px' }}
+                    >
+                      -1 hora
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const n = new Date();
+                        setEditStartDateVal(format(n, 'yyyy-MM-dd'));
+                        setEditStartTimeVal(format(n, 'HH:mm:ss'));
+                      }}
+                      className="btn-secondary"
+                      style={{ fontSize: '0.65rem', padding: '4px 8px' }}
+                    >
+                      Ahora mismo
+                    </button>
+                  </div>
+                </div>
+
+                {/* Vista previa del tiempo calculado */}
+                {(() => {
+                  const timeFormatted = editStartTimeVal.length === 5 ? `${editStartTimeVal}:00` : editStartTimeVal;
+                  const testDate = new Date(`${editStartDateVal}T${timeFormatted}`);
+                  const isValid = !isNaN(testDate.getTime());
+                  const isFuture = isValid && testDate.getTime() > Date.now();
+                  const totalSec = isValid && !isFuture ? Math.floor((Date.now() - testDate.getTime()) / 1000) : 0;
+                  return (
+                    <div className="mono-font" style={{ 
+                      padding: '10px 14px', 
+                      borderRadius: '4px', 
+                      background: isFuture ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255,255,255,0.03)',
+                      border: isFuture ? '1px solid var(--danger)' : '1px solid var(--surface-border)',
+                      fontSize: '0.75rem'
+                    }}>
+                      {isFuture ? (
+                        <span style={{ color: 'var(--danger)' }}>⚠️ La hora seleccionada está en el futuro. Debe ser igual o anterior a la hora actual.</span>
+                      ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>Nuevo tiempo transcurrido:</span>
+                          <strong style={{ color: 'var(--accent-color)', fontSize: '1rem' }}>{formatDuration(totalSec / 3600)}</strong>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={handleSaveActiveStartTime}
+                    className="btn-primary"
+                    style={{ flex: 1, justifyContent: 'center', padding: '10px' }}
+                  >
+                    GUARDAR CAMBIOS
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingActiveStart(false)}
+                    className="btn-secondary"
+                    style={{ flex: 1, justifyContent: 'center', padding: '10px' }}
+                  >
+                    CANCELAR
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* CLIENT MODAL */}
         {showClientModal && (
           <ClientModal
@@ -3767,6 +4087,7 @@ const App: React.FC = () => {
       {showManualEntry && (
         <ManualEntryModal
           clients={settings.clients}
+          isEditing={!!editSessionId}
           manualEntry={manualEntry}
           setManualEntry={setManualEntry}
           onSave={handleManualEntrySave}
