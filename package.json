@@ -17,20 +17,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "afip-ws-node": "^3.2.3",
     "afip.ts": "^3.2.2",
-    "date-fns": "^4.1.0",
     "electron-updater": "^6.1.7",
-    "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.8",
-    "lucide-react": "^1.8.0",
-    "node-afip": "^1.0.4",
     "node-forge": "^1.4.0",
     "nodemailer": "^9.0.3",
-    "qrcode": "^1.5.4",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "soap": "^1.8.0"
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -40,15 +31,24 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "afip-ws-node": "^3.2.3",
     "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
+    "date-fns": "^4.1.0",
     "electron": "^41.2.0",
     "electron-builder": "^26.8.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^1.8.0",
+    "node-afip": "^1.0.4",
     "png-to-ico": "^3.0.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "soap": "^1.8.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.0",
     "vite": "^8.0.4",
@@ -57,6 +57,7 @@
   "build": {
     "appId": "com.lynx.tracker-de-horas",
     "productName": "Tracker de Horas",
+    "npmRebuild": false,
     "publish": [
       {
         "provider": "github",
